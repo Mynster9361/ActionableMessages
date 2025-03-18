@@ -90,6 +90,23 @@ jobs:
             # Ensure directory exists before writing file
             Write-Host "Writing test results to: $testResultsJson"
             $summary | ConvertTo-Json -Depth 5 > $testResultsJson
+            # Set output variables
+            "passed_count=$($testResults.PassedCount)" >> $env:GITHUB_OUTPUT
+            "failed_count=$($testResults.FailedCount)" >> $env:GITHUB_OUTPUT
+            "skipped_count=$($testResults.SkippedCount)" >> $env:GITHUB_OUTPUT
+            "total_count=$($testResults.TotalCount)" >> $env:GITHUB_OUTPUT
+              if ($testResults.FailedCount -gt 0) {
+                "result=failure" >> $env:GITHUB_OUTPUT
+                exit 1
+              } else {
+                "result=success" >> $env:GITHUB_OUTPUT
+              }
+          }
+          catch {
+            Write-Error "Error running Pester tests: $_"
+            "result=failure" >> $env:GITHUB_OUTPUT
+            exit 1
+          }
 
       - name: Post Test Results Comment
         if: github.event_name == 'pull_request' && always()
