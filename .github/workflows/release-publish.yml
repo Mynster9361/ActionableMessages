@@ -68,15 +68,3 @@ jobs:
 
           # Publish the module
           Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
-
-      - name: Create Tag
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/v${{ steps.version.outputs.new_version }}',
-              sha: context.sha
-            })
