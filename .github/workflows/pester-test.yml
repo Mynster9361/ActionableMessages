@@ -11,6 +11,11 @@ on:
       - '.github/**'
       - '!.github/workflows/pester-tests.yml'
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   test:
     name: Run Pester Tests
@@ -97,15 +102,6 @@ jobs:
             "result=failure" >> $env:GITHUB_OUTPUT
             exit 1
           }
-
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            ${{ github.workspace }}/test-results.xml
-            ${{ github.workspace }}/test-results.json
 
       - name: Post Test Results Comment
         if: github.event_name == 'pull_request' && always()
