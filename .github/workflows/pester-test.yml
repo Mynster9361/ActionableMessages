@@ -43,156 +43,179 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module -Name Pester -MinimumVersion 5.3.0 -Force -SkipPublisherCheck
 
-      - name: Run Pester Tests
-        id: pester
-        shell: pwsh
-        run: |
-          $result = Invoke-Pester -Path ${{ github.workspace }}\tests -OutputFormat NUnitXml -OutputFile ${{ github.workspace }}\test-results.xml
-          if ($result.FailedCount -gt 0) {
-            throw "Tests failed"
-          }
-
-          # Convert NUnit XML to JSON
-          $xml = [xml](Get-Content -Path ${{ github.workspace }}\test-results.xml)
-          $testResults = @{
-            TotalCount = $xml.SelectSingleNode('//test-results').GetAttribute('total')
-            PassedCount = $xml.SelectSingleNode('//test-results').GetAttribute('passed')
-            FailedCount = $xml.SelectSingleNode('//test-results').GetAttribute('failed')
-            SkippedCount = $xml.SelectSingleNode('//test-results').GetAttribute('skipped')
-            NotRunCount = $xml.SelectSingleNode('//test-results').GetAttribute('not-run')
-            Duration = $xml.SelectSingleNode('//test-results').GetAttribute('time')
-            FailedTests = @()
-          }
-
-          $xml.SelectNodes('//test-case[@result="Failed"]').ForEach({
-            $test = @{
-              Name = $_.GetAttribute('name')
-              Path = $_.GetAttribute('type')
-              ErrorMessage = $_.SelectSingleNode('failure/message').InnerText
-            }
-            $testResults.FailedTests += $test
-          })
-
-          $testResults | ConvertTo-Json | Set-Content -Path ${{ github.workspace }}\test-results.json
-
-
-
-      - name: Post Test Results Comment
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
+          - name: Run Pester Tests
+          id: pester
+          shell: pwsh
+          run: |
+            # Create output paths
+            $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
+            $testResultsSarif = "$env:GITHUB_WORKSPACE/test-results.sarif"
 
             try {
-              // Log workspace path for debugging
-              console.log(`GitHub workspace path: ${process.env.GITHUB_WORKSPACE}`);
-              const resultPath = `${process.env.GITHUB_WORKSPACE}/test-results.json`;
-              console.log(`Looking for test results at: ${resultPath}`);
+              # Run tests
+              Write-Host "Running Pester tests..."
+              $result = Invoke-Pester -Path ${{ github.workspace }}\tests -PassThru
 
-              // Check if file exists
-              if (!fs.existsSync(resultPath)) {
-                console.log(`Test results file not found at ${resultPath}`);
-                const body = `## Pester Test Results ⚠️\n\nNo test results file was found. Tests may have failed to run properly.\n\n[View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+              # Save raw results as JSON
+              $result | ConvertTo-Json -Depth 10 | Out-File $testResultsJson -Force
 
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body
-                });
-                return;
+              # Now convert to SARIF format
+              Write-Host "Converting test results to SARIF format..."
+
+              # Create SARIF structure
+              $sarifObj = @{
+                '$schema' = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/refs/heads/main/sarif-2.2/schema/sarif-2-2.schema.json"
+                version = "2.2.0"
+                runs = @(
+                  @{
+                    tool = @{
+                      driver = @{
+                        name = "Pester"
+                        version = (Get-Module Pester).Version.ToString()
+                        informationUri = "https://github.com/pester/Pester"
+                        rules = @()
+                      }
+                    }
+                    results = @()
+                    invocations = @(
+                      @{
+                        executionSuccessful = ($result.FailedCount -eq 0)
+                        toolExecutionNotifications = @()
+                      }
+                    )
+                  }
+                )
               }
 
-              // Read and parse test results
-              const testResults = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-              console.log('Test results loaded successfully');
+              # Add results
+              $ruleIndex = 0
+              $ruleIds = @{}
 
-              const formatDuration = (seconds) => {
-                if (!seconds && seconds !== 0) return 'n/a';
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.round(seconds % 60);
-                return `${mins}m ${secs}s`;
-              };
+              # Process failed tests
+              foreach ($test in $result.Failed) {
+                $ruleName = "$($test.Block).$($test.Name)"
+                $ruleId = "TEST$ruleIndex"
 
-              // Generate test result summary
-              let resultIcon = (testResults.FailedCount > 0) ? '❌' : '✅';
-              let resultColor = (testResults.FailedCount > 0) ? 'red' : 'green';
+                # Add rule
+                $sarifObj.runs[0].tool.driver.rules += @{
+                  id = $ruleId
+                  name = $ruleName
+                  shortDescription = @{
+                    text = $test.Name
+                  }
+                  helpUri = "https://github.com/pester/Pester"
+                }
 
-              let body = `## Pester Test Results ${resultIcon}\n\n`;
-              body += `- **Total Tests:** ${testResults.TotalCount || 0}\n`;
-              body += `- **Passed:** ${testResults.PassedCount || 0} ✅\n`;
-              body += `- **Failed:** ${testResults.FailedCount || 0} ${(testResults.FailedCount > 0) ? '❌' : ''}\n`;
-              body += `- **Skipped:** ${testResults.SkippedCount || 0} ${(testResults.SkippedCount > 0) ? '⚠️' : ''}\n`;
-              body += `- **Not Run:** ${testResults.NotRunCount || 0}\n`;
-              body += `- **Duration:** ${formatDuration(testResults.Duration)}\n\n`;
+                # Add result
+                $sarifObj.runs[0].results += @{
+                  ruleId = $ruleId
+                  message = @{
+                    text = $test.ErrorRecord.Exception.Message
+                  }
+                  level = "error"
+                  locations = @(
+                    @{
+                      physicalLocation = @{
+                        artifactLocation = @{
+                          uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                        }
+                        region = @{
+                          startLine = $test.ErrorRecord.InvocationInfo.ScriptLineNumber
+                          startColumn = 1
+                        }
+                      }
+                    }
+                  )
+                }
 
-              // Add failed test details if any
-              if (testResults.FailedCount > 0 && Array.isArray(testResults.FailedTests)) {
-                body += `### Failed Tests\n\n`;
-                testResults.FailedTests.forEach(test => {
-                  body += `<details>\n`;
-                  body += `<summary><b>${test.Name || 'Unnamed test'}</b></summary>\n\n`;
-                  body += `**Test:** ${test.Name || 'Unnamed test'}\n`;
-                  body += `**Path:** ${test.Path || 'Path not available'}\n`;
-                  body += `**Error:** ${test.ErrorMessage || 'No error message available'}\n`;
-                  body += `</details>\n\n`;
-                });
+                $ruleIndex++
               }
 
-              body += `[View detailed test results](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+              # Process passed tests as informational results if desired
+              foreach ($test in $result.Passed) {
+                $ruleName = "$($test.Block).$($test.Name)"
+                $ruleId = "TEST$ruleIndex"
 
-              // Find and update existing comment or create new one
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number
-              });
+                # Add rule
+                $sarifObj.runs[0].tool.driver.rules += @{
+                  id = $ruleId
+                  name = $ruleName
+                  shortDescription = @{
+                    text = $test.Name
+                  }
+                  helpUri = "https://github.com/pester/Pester"
+                }
 
-              const existingComment = comments.find(comment =>
-                comment.user.login === 'github-actions[bot]' &&
-                comment.body.includes('## Pester Test Results')
-              );
+                # Add result as informational
+                $sarifObj.runs[0].results += @{
+                  ruleId = $ruleId
+                  message = @{
+                    text = "Test passed successfully"
+                  }
+                  level = "none"
+                  locations = @(
+                    @{
+                      physicalLocation = @{
+                        artifactLocation = @{
+                          uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                        }
+                        region = @{
+                          startLine = 1
+                          startColumn = 1
+                        }
+                      }
+                    }
+                  )
+                }
 
-              if (existingComment) {
-                console.log(`Updating existing comment ID: ${existingComment.id}`);
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existingComment.id,
-                  body
-                });
+                $ruleIndex++
+              }
+
+              # Calculate summary information
+              $sarifObj.runs[0].invocations[0].toolExecutionNotifications = @(
+                @{
+                  descriptor = @{
+                    id = "PESTER1"
+                  }
+                  message = @{
+                    text = "Pester executed $($result.TotalCount) tests. Passed: $($result.PassedCount), Failed: $($result.FailedCount), Skipped: $($result.SkippedCount)"
+                  }
+                  level = ($result.FailedCount -gt 0) ? "error" : "note"
+                }
+              )
+
+              # Save SARIF to file
+              $sarifObj | ConvertTo-Json -Depth 20 | Out-File $testResultsSarif -Force
+
+              # Set outputs for other steps
+              "total_count=$($result.TotalCount)" >> $env:GITHUB_OUTPUT
+              "passed_count=$($result.PassedCount)" >> $env:GITHUB_OUTPUT
+              "failed_count=$($result.FailedCount)" >> $env:GITHUB_OUTPUT
+              "skipped_count=$($result.SkippedCount)" >> $env:GITHUB_OUTPUT
+              "sarif_path=$testResultsSarif" >> $env:GITHUB_OUTPUT
+
+              # Exit with error if any tests failed
+              if ($result.FailedCount -gt 0) {
+                "result=failure" >> $env:GITHUB_OUTPUT
+                exit 1
               } else {
-                console.log('Creating new comment');
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body
-                });
-              }
-
-              console.log('Comment posted successfully');
-
-            } catch (error) {
-              console.error('Error posting test results comment:');
-              console.error(error);
-
-              // Post error comment instead of failing
-              try {
-                const errorBody = `## Pester Test Results ⚠️\n\nThere was an error processing the test results:\n\`\`\`\n${error.message}\n\`\`\`\n\n[View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
-
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: errorBody
-                });
-              } catch (commentError) {
-                console.error('Failed to post error comment:', commentError);
+                "result=success" >> $env:GITHUB_OUTPUT
               }
             }
+            catch {
+              Write-Error "Error running Pester tests: $_"
+              "result=failure" >> $env:GITHUB_OUTPUT
+              exit 1
+            }
+
+
+
+      - name: Upload SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/test-results.sarif
+          category: pester-tests
 
       - name: Check Test Results
         if: always()
