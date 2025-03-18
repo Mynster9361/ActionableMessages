@@ -57,7 +57,7 @@ jobs:
             $result = Invoke-Pester -Path ${{ github.workspace }}\tests -PassThru
 
             # Save raw results as JSON
-            $result | ConvertTo-Json -Depth 10 | Out-File $testResultsJson -Force
+            $result | ConvertTo-Json -Depth 50 | Out-File $testResultsJson -Force
 
             # Now convert to SARIF format
             Write-Host "Converting test results to SARIF format..."
