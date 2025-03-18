@@ -47,90 +47,35 @@ jobs:
         id: pester
         shell: pwsh
         run: |
-          $testResultsFile = "$env:GITHUB_WORKSPACE/test-results.xml"
-          $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
-
-          try {
-            # Explicitly import Pester
-            Import-Module Pester -ErrorAction Stop
-            $config = [PesterConfiguration]::Default
-            $config.Run.Path = "$env:GITHUB_WORKSPACE/Tests"
-            $config.TestResult.Enabled = $true
-            $config.TestResult.OutputFormat = "NUnitXml"
-            $config.TestResult.OutputPath = $testResultsFile
-            $config.Output.Verbosity = "Detailed"
-
-            # Run the tests with PassThru to ensure we get a results object
-            $testResults = Invoke-Pester -Configuration $config -PassThru
-
-            # Debug: Display basic information about the results
-            Write-Host "Tests completed. Passed: $($testResults.PassedCount), Failed: $($testResults.FailedCount), Total: $($testResults.TotalCount)"
-
-            # Create a summary object manually from the console output
-            # This ensures we have data even if the test object structure is not what we expect
-            $summary = @{
-              TotalCount = 0  # Based on actual test count from logs
-              PassedCount = 0 # Since all tests passed
-              FailedCount = 0
-              SkippedCount = 0
-              NotRunCount = 0
-              Duration = 4.44  # From the log output
-              FailedTests = @()
-            }
-
-            # If we have actual test results, use those values instead
-            if ($testResults -and ($testResults.PSObject.Properties.Name -contains 'TotalCount')) {
-              Write-Host "Using actual test result values"
-              $summary.TotalCount = $testResults.TotalCount
-              $summary.PassedCount = $testResults.PassedCount
-              $summary.FailedCount = $testResults.FailedCount
-              $summary.Duration = $testResults.Duration.TotalSeconds
-
-              # These properties might have different access patterns in Pester 5
-              if ($testResults.PSObject.Properties.Name -contains 'Skipped') {
-                $summary.SkippedCount = ($testResults.Skipped | Measure-Object).Count
-              }
-              if ($testResults.PSObject.Properties.Name -contains 'NotRun') {
-                $summary.NotRunCount = ($testResults.NotRun | Measure-Object).Count
-              }
-
-              # Add failed tests if any
-              if ($testResults.Failed) {
-                $summary.FailedTests = @($testResults.Failed | ForEach-Object {
-                  @{
-                    Name = $_.Name
-                    Path = $_.Path
-                    ErrorMessage = $_.ErrorRecord.Exception.Message
-                  }
-                })
-              }
-            }
-
-            # Output summary for debugging
-            Write-Host "Result summary: $(ConvertTo-Json -InputObject $summary -Compress)"
-
-            # Write the results to file
-            Write-Host "Writing test results to: $testResultsJson"
-            ConvertTo-Json -InputObject $summary -Depth 5 | Out-File -FilePath $testResultsJson -Encoding utf8
-
-            # Set output variables
-            "passed_count=$($summary.PassedCount)" >> $env:GITHUB_OUTPUT
-            "failed_count=$($summary.FailedCount)" >> $env:GITHUB_OUTPUT
-            "skipped_count=$($summary.SkippedCount)" >> $env:GITHUB_OUTPUT
-            "total_count=$($summary.TotalCount)" >> $env:GITHUB_OUTPUT
-
-            if ($summary.FailedCount -gt 0) {
-              "result=failure" >> $env:GITHUB_OUTPUT
-              exit 1
-            } else {
-              "result=success" >> $env:GITHUB_OUTPUT
-            }
+          $result = Invoke-Pester -Path ${{ github.workspace }}\tests -OutputFormat NUnitXml -OutputFile ${{ github.workspace }}\test-results.xml
+          if ($result.FailedCount -gt 0) {
+            throw "Tests failed"
           }
-          catch {
-            Write-Error "Error running Pester tests: $_"
-            "result=failure" >> $env:GITHUB_OUTPUT
-            exit 1
+
+          # Convert NUnit XML to JSON
+          $xml = [xml](Get-Content -Path ${{ github.workspace }}\test-results.xml)
+          $testResults = @{
+            TotalCount = $xml.SelectSingleNode('//test-results').GetAttribute('total')
+            PassedCount = $xml.SelectSingleNode('//test-results').GetAttribute('passed')
+            FailedCount = $xml.SelectSingleNode('//test-results').GetAttribute('failed')
+            SkippedCount = $xml.SelectSingleNode('//test-results').GetAttribute('skipped')
+            NotRunCount = $xml.SelectSingleNode('//test-results').GetAttribute('not-run')
+            Duration = $xml.SelectSingleNode('//test-results').GetAttribute('time')
+            FailedTests = @()
           }
+
+          $xml.SelectNodes('//test-case[@result="Failed"]').ForEach({
+            $test = @{
+              Name = $_.GetAttribute('name')
+              Path = $_.GetAttribute('type')
+              ErrorMessage = $_.SelectSingleNode('failure/message').InnerText
+            }
+            $testResults.FailedTests += $test
+          })
+
+          $testResults | ConvertTo-Json | Set-Content -Path ${{ github.workspace }}\test-results.json
+
+
 
       - name: Post Test Results Comment
         if: github.event_name == 'pull_request' && always()
