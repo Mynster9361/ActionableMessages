@@ -67,7 +67,7 @@ jobs:
           $ModuleInfo = Import-PowerShellDataFile $ManifestPath
 
           # Publish the module
-          Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.PS_GALLERY_API_KEY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
+          Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
 
       - name: Create Tag
         uses: actions/github-script@v6
