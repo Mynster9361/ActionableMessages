@@ -43,170 +43,170 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module -Name Pester -MinimumVersion 5.3.0 -Force -SkipPublisherCheck
 
-          - name: Run Pester Tests
-          id: pester
-          shell: pwsh
-          run: |
-            # Create output paths
-            $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
-            $testResultsSarif = "$env:GITHUB_WORKSPACE/test-results.sarif"
+      - name: Run Pester Tests
+        id: pester
+        shell: pwsh
+        run: |
+          # Create output paths
+          $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
+          $testResultsSarif = "$env:GITHUB_WORKSPACE/test-results.sarif"
 
-            try {
-              # Run tests
-              Write-Host "Running Pester tests..."
-              $result = Invoke-Pester -Path ${{ github.workspace }}\tests -PassThru
+          try {
+            # Run tests
+            Write-Host "Running Pester tests..."
+            $result = Invoke-Pester -Path ${{ github.workspace }}\tests -PassThru
 
-              # Save raw results as JSON
-              $result | ConvertTo-Json -Depth 10 | Out-File $testResultsJson -Force
+            # Save raw results as JSON
+            $result | ConvertTo-Json -Depth 10 | Out-File $testResultsJson -Force
 
-              # Now convert to SARIF format
-              Write-Host "Converting test results to SARIF format..."
+            # Now convert to SARIF format
+            Write-Host "Converting test results to SARIF format..."
 
-              # Create SARIF structure
-              $sarifObj = @{
-                '$schema' = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/refs/heads/main/sarif-2.2/schema/sarif-2-2.schema.json"
-                version = "2.2.0"
-                runs = @(
+            # Create SARIF structure
+            $sarifObj = @{
+              '$schema' = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/refs/heads/main/sarif-2.2/schema/sarif-2-2.schema.json"
+              version = "2.2.0"
+              runs = @(
+                @{
+                  tool = @{
+                    driver = @{
+                      name = "Pester"
+                      version = (Get-Module Pester).Version.ToString()
+                      informationUri = "https://github.com/pester/Pester"
+                      rules = @()
+                    }
+                  }
+                  results = @()
+                  invocations = @(
+                    @{
+                      executionSuccessful = ($result.FailedCount -eq 0)
+                      toolExecutionNotifications = @()
+                    }
+                  )
+                }
+              )
+            }
+
+            # Add results
+            $ruleIndex = 0
+            $ruleIds = @{}
+
+            # Process failed tests
+            foreach ($test in $result.Failed) {
+              $ruleName = "$($test.Block).$($test.Name)"
+              $ruleId = "TEST$ruleIndex"
+
+              # Add rule
+              $sarifObj.runs[0].tool.driver.rules += @{
+                id = $ruleId
+                name = $ruleName
+                shortDescription = @{
+                  text = $test.Name
+                }
+                helpUri = "https://github.com/pester/Pester"
+              }
+
+              # Add result
+              $sarifObj.runs[0].results += @{
+                ruleId = $ruleId
+                message = @{
+                  text = $test.ErrorRecord.Exception.Message
+                }
+                level = "error"
+                locations = @(
                   @{
-                    tool = @{
-                      driver = @{
-                        name = "Pester"
-                        version = (Get-Module Pester).Version.ToString()
-                        informationUri = "https://github.com/pester/Pester"
-                        rules = @()
+                    physicalLocation = @{
+                      artifactLocation = @{
+                        uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                      }
+                      region = @{
+                        startLine = $test.ErrorRecord.InvocationInfo.ScriptLineNumber
+                        startColumn = 1
                       }
                     }
-                    results = @()
-                    invocations = @(
-                      @{
-                        executionSuccessful = ($result.FailedCount -eq 0)
-                        toolExecutionNotifications = @()
-                      }
-                    )
                   }
                 )
               }
 
-              # Add results
-              $ruleIndex = 0
-              $ruleIds = @{}
-
-              # Process failed tests
-              foreach ($test in $result.Failed) {
-                $ruleName = "$($test.Block).$($test.Name)"
-                $ruleId = "TEST$ruleIndex"
-
-                # Add rule
-                $sarifObj.runs[0].tool.driver.rules += @{
-                  id = $ruleId
-                  name = $ruleName
-                  shortDescription = @{
-                    text = $test.Name
-                  }
-                  helpUri = "https://github.com/pester/Pester"
-                }
-
-                # Add result
-                $sarifObj.runs[0].results += @{
-                  ruleId = $ruleId
-                  message = @{
-                    text = $test.ErrorRecord.Exception.Message
-                  }
-                  level = "error"
-                  locations = @(
-                    @{
-                      physicalLocation = @{
-                        artifactLocation = @{
-                          uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
-                        }
-                        region = @{
-                          startLine = $test.ErrorRecord.InvocationInfo.ScriptLineNumber
-                          startColumn = 1
-                        }
-                      }
-                    }
-                  )
-                }
-
-                $ruleIndex++
-              }
-
-              # Process passed tests as informational results if desired
-              foreach ($test in $result.Passed) {
-                $ruleName = "$($test.Block).$($test.Name)"
-                $ruleId = "TEST$ruleIndex"
-
-                # Add rule
-                $sarifObj.runs[0].tool.driver.rules += @{
-                  id = $ruleId
-                  name = $ruleName
-                  shortDescription = @{
-                    text = $test.Name
-                  }
-                  helpUri = "https://github.com/pester/Pester"
-                }
-
-                # Add result as informational
-                $sarifObj.runs[0].results += @{
-                  ruleId = $ruleId
-                  message = @{
-                    text = "Test passed successfully"
-                  }
-                  level = "none"
-                  locations = @(
-                    @{
-                      physicalLocation = @{
-                        artifactLocation = @{
-                          uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
-                        }
-                        region = @{
-                          startLine = 1
-                          startColumn = 1
-                        }
-                      }
-                    }
-                  )
-                }
-
-                $ruleIndex++
-              }
-
-              # Calculate summary information
-              $sarifObj.runs[0].invocations[0].toolExecutionNotifications = @(
-                @{
-                  descriptor = @{
-                    id = "PESTER1"
-                  }
-                  message = @{
-                    text = "Pester executed $($result.TotalCount) tests. Passed: $($result.PassedCount), Failed: $($result.FailedCount), Skipped: $($result.SkippedCount)"
-                  }
-                  level = ($result.FailedCount -gt 0) ? "error" : "note"
-                }
-              )
-
-              # Save SARIF to file
-              $sarifObj | ConvertTo-Json -Depth 20 | Out-File $testResultsSarif -Force
-
-              # Set outputs for other steps
-              "total_count=$($result.TotalCount)" >> $env:GITHUB_OUTPUT
-              "passed_count=$($result.PassedCount)" >> $env:GITHUB_OUTPUT
-              "failed_count=$($result.FailedCount)" >> $env:GITHUB_OUTPUT
-              "skipped_count=$($result.SkippedCount)" >> $env:GITHUB_OUTPUT
-              "sarif_path=$testResultsSarif" >> $env:GITHUB_OUTPUT
-
-              # Exit with error if any tests failed
-              if ($result.FailedCount -gt 0) {
-                "result=failure" >> $env:GITHUB_OUTPUT
-                exit 1
-              } else {
-                "result=success" >> $env:GITHUB_OUTPUT
-              }
+              $ruleIndex++
             }
-            catch {
-              Write-Error "Error running Pester tests: $_"
+
+            # Process passed tests as informational results if desired
+            foreach ($test in $result.Passed) {
+              $ruleName = "$($test.Block).$($test.Name)"
+              $ruleId = "TEST$ruleIndex"
+
+              # Add rule
+              $sarifObj.runs[0].tool.driver.rules += @{
+                id = $ruleId
+                name = $ruleName
+                shortDescription = @{
+                  text = $test.Name
+                }
+                helpUri = "https://github.com/pester/Pester"
+              }
+
+              # Add result as informational
+              $sarifObj.runs[0].results += @{
+                ruleId = $ruleId
+                message = @{
+                  text = "Test passed successfully"
+                }
+                level = "none"
+                locations = @(
+                  @{
+                    physicalLocation = @{
+                      artifactLocation = @{
+                        uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                      }
+                      region = @{
+                        startLine = 1
+                        startColumn = 1
+                      }
+                    }
+                  }
+                )
+              }
+
+              $ruleIndex++
+            }
+
+            # Calculate summary information
+            $sarifObj.runs[0].invocations[0].toolExecutionNotifications = @(
+              @{
+                descriptor = @{
+                  id = "PESTER1"
+                }
+                message = @{
+                  text = "Pester executed $($result.TotalCount) tests. Passed: $($result.PassedCount), Failed: $($result.FailedCount), Skipped: $($result.SkippedCount)"
+                }
+                level = ($result.FailedCount -gt 0) ? "error" : "note"
+              }
+            )
+
+            # Save SARIF to file
+            $sarifObj | ConvertTo-Json -Depth 20 | Out-File $testResultsSarif -Force
+
+            # Set outputs for other steps
+            "total_count=$($result.TotalCount)" >> $env:GITHUB_OUTPUT
+            "passed_count=$($result.PassedCount)" >> $env:GITHUB_OUTPUT
+            "failed_count=$($result.FailedCount)" >> $env:GITHUB_OUTPUT
+            "skipped_count=$($result.SkippedCount)" >> $env:GITHUB_OUTPUT
+            "sarif_path=$testResultsSarif" >> $env:GITHUB_OUTPUT
+
+            # Exit with error if any tests failed
+            if ($result.FailedCount -gt 0) {
               "result=failure" >> $env:GITHUB_OUTPUT
               exit 1
+            } else {
+              "result=success" >> $env:GITHUB_OUTPUT
             }
+          }
+          catch {
+            Write-Error "Error running Pester tests: $_"
+            "result=failure" >> $env:GITHUB_OUTPUT
+            exit 1
+          }
 
 
 
