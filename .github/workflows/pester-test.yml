@@ -44,6 +44,8 @@ jobs:
           $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
 
           try {
+            # Explicitly import Pester
+            Import-Module Pester -ErrorAction Stop
             $config = [PesterConfiguration]::Default
             $config.Run.Path = "$env:GITHUB_WORKSPACE/Tests"
             $config.TestResult.Enabled = $true
