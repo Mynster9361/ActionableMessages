@@ -1,0 +1,178 @@
+name: Pester Tests
+
+on:
+  pull_request:
+    branches: [ main, master, development ]
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/**'
+      - '!.github/workflows/pester-tests.yml'
+
+jobs:
+  test:
+    name: Run Pester Tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup PowerShell Module Cache
+        id: cache-psmodules
+        uses: actions/cache@v3
+        with:
+          path: "~/.local/share/powershell/Modules"
+          key: ${{ runner.os }}-psmodules-${{ hashFiles('**/requirements.psd1') }}
+          restore-keys: |
+            ${{ runner.os }}-psmodules-
+
+      - name: Install PowerShell Modules
+        if: steps.cache-psmodules.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -MinimumVersion 5.3.0 -Force -SkipPublisherCheck
+
+      - name: Run Pester Tests
+        id: pester
+        shell: pwsh
+        run: |
+          $testResults = $null
+          $testResultsFile = "$env:GITHUB_WORKSPACE/test-results.xml"
+          $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
+
+          try {
+            $config = [PesterConfiguration]::Default
+            $config.Run.Path = "$env:GITHUB_WORKSPACE/Tests"
+            $config.TestResult.Enabled = $true
+            $config.TestResult.OutputFormat = "NUnitXml"
+            $config.TestResult.OutputPath = $testResultsFile
+            $config.Output.Verbosity = "Detailed"
+
+            $testResults = Invoke-Pester -Configuration $config
+
+            # Create JSON for easier parsing in later steps
+            $summary = @{
+              TotalCount = $testResults.TotalCount
+              PassedCount = $testResults.PassedCount
+              FailedCount = $testResults.FailedCount
+              SkippedCount = $testResults.SkippedCount
+              NotRunCount = $testResults.NotRunCount
+              Duration = $testResults.Duration.TotalSeconds
+              FailedTests = @($testResults.Failed | ForEach-Object {
+                @{
+                  Name = $_.Name
+                  Path = $_.Path
+                  ErrorMessage = $_.ErrorRecord.Exception.Message
+                }
+              })
+            }
+
+            $summary | ConvertTo-Json -Depth 5 > $testResultsJson
+
+            # Set output variables
+            "passed_count=$($testResults.PassedCount)" >> $env:GITHUB_OUTPUT
+            "failed_count=$($testResults.FailedCount)" >> $env:GITHUB_OUTPUT
+            "skipped_count=$($testResults.SkippedCount)" >> $env:GITHUB_OUTPUT
+            "total_count=$($testResults.TotalCount)" >> $env:GITHUB_OUTPUT
+
+            if ($testResults.FailedCount -gt 0) {
+              "result=failure" >> $env:GITHUB_OUTPUT
+              exit 1
+            } else {
+              "result=success" >> $env:GITHUB_OUTPUT
+            }
+          }
+          catch {
+            Write-Error "Error running Pester tests: $_"
+            "result=failure" >> $env:GITHUB_OUTPUT
+            exit 1
+          }
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            ${{ github.workspace }}/test-results.xml
+            ${{ github.workspace }}/test-results.json
+
+      - name: Post Test Results Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const testResults = JSON.parse(fs.readFileSync('${{ github.workspace }}/test-results.json', 'utf8'));
+
+            const formatDuration = (seconds) => {
+              const mins = Math.floor(seconds / 60);
+              const secs = Math.round(seconds % 60);
+              return `${mins}m ${secs}s`;
+            };
+
+            let resultIcon = testResults.FailedCount > 0 ? '❌' : '✅';
+            let resultColor = testResults.FailedCount > 0 ? 'red' : 'green';
+
+            let body = `## Pester Test Results ${resultIcon}\n\n`;
+            body += `- **Total Tests:** ${testResults.TotalCount}\n`;
+            body += `- **Passed:** ${testResults.PassedCount} ✅\n`;
+            body += `- **Failed:** ${testResults.FailedCount} ${testResults.FailedCount > 0 ? '❌' : ''}\n`;
+            body += `- **Skipped:** ${testResults.SkippedCount} ${testResults.SkippedCount > 0 ? '⚠️' : ''}\n`;
+            body += `- **Not Run:** ${testResults.NotRunCount}\n`;
+            body += `- **Duration:** ${formatDuration(testResults.Duration)}\n\n`;
+
+            if (testResults.FailedCount > 0) {
+              body += `### Failed Tests\n\n`;
+              testResults.FailedTests.forEach(test => {
+                body += `<details>\n`;
+                body += `<summary><b>${test.Name}</b></summary>\n\n`;
+                body += `**Test:** ${test.Name}\n`;
+                body += `**Path:** ${test.Path}\n`;
+                body += `**Error:** ${test.ErrorMessage}\n`;
+                body += `</details>\n\n`;
+              });
+            }
+
+            body += `[View detailed test results](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            // Look for an existing comment from this workflow
+            const existingComment = comments.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('## Pester Test Results')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
+      - name: Check Test Results
+        if: always()
+        shell: pwsh
+        run: |
+          $result = "${{ steps.pester.outputs.result }}"
+          if ($result -eq "failure") {
+            throw "Tests failed"
+          }
