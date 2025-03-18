@@ -76,14 +76,13 @@ jobs:
             # Save summary results as JSON (not the full result object)
             $summary | ConvertTo-Json -Depth 5 | Out-File $testResultsJson -Force
 
-            # Now convert to SARIF format (keep this part as is)
+            # Now convert to SARIF format with correct version
             Write-Host "Converting test results to SARIF format..."
 
-
-            # Create SARIF structure
+            # Create SARIF structure with correct version 2.1.0
             $sarifObj = @{
-              '$schema' = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/refs/heads/main/sarif-2.2/schema/sarif-2-2.schema.json"
-              version = "2.2.0"
+              '$schema' = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/refs/heads/main/sarif-2.1/schema/sarif-schema-2.1.0.json"
+              version = "2.1.0"
               runs = @(
                 @{
                   tool = @{
@@ -107,12 +106,20 @@ jobs:
 
             # Add results
             $ruleIndex = 0
-            $ruleIds = @{}
 
             # Process failed tests
             foreach ($test in $result.Failed) {
               $ruleName = "$($test.Block).$($test.Name)"
               $ruleId = "TEST$ruleIndex"
+
+              # Get the file path as a proper URI string
+              $filePath = $test.Path
+              if ($filePath) {
+                $relativePath = $filePath.Replace($env:GITHUB_WORKSPACE, "").TrimStart("\").Replace("\", "/")
+                if (-not $relativePath.StartsWith("/")) { $relativePath = "/$relativePath" }
+              } else {
+                $relativePath = "/unknown/path.ps1"
+              }
 
               # Add rule
               $sarifObj.runs[0].tool.driver.rules += @{
@@ -124,7 +131,7 @@ jobs:
                 helpUri = "https://github.com/pester/Pester"
               }
 
-              # Add result
+              # Add result with properly formatted URI
               $sarifObj.runs[0].results += @{
                 ruleId = $ruleId
                 message = @{
@@ -135,10 +142,12 @@ jobs:
                   @{
                     physicalLocation = @{
                       artifactLocation = @{
-                        uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                        uri = $relativePath
                       }
                       region = @{
-                        startLine = $test.ErrorRecord.InvocationInfo.ScriptLineNumber
+                        startLine = if ($test.ErrorRecord.InvocationInfo.ScriptLineNumber) {
+                          $test.ErrorRecord.InvocationInfo.ScriptLineNumber
+                        } else { 1 }
                         startColumn = 1
                       }
                     }
@@ -149,10 +158,19 @@ jobs:
               $ruleIndex++
             }
 
-            # Process passed tests as informational results if desired
+            # Process passed tests as informational results
             foreach ($test in $result.Passed) {
               $ruleName = "$($test.Block).$($test.Name)"
               $ruleId = "TEST$ruleIndex"
+
+              # Get the file path as a proper URI string
+              $filePath = $test.Path
+              if ($filePath) {
+                $relativePath = $filePath.Replace($env:GITHUB_WORKSPACE, "").TrimStart("\").Replace("\", "/")
+                if (-not $relativePath.StartsWith("/")) { $relativePath = "/$relativePath" }
+              } else {
+                $relativePath = "/unknown/path.ps1"
+              }
 
               # Add rule
               $sarifObj.runs[0].tool.driver.rules += @{
@@ -164,7 +182,7 @@ jobs:
                 helpUri = "https://github.com/pester/Pester"
               }
 
-              # Add result as informational
+              # Add result as informational with properly formatted URI
               $sarifObj.runs[0].results += @{
                 ruleId = $ruleId
                 message = @{
@@ -175,7 +193,7 @@ jobs:
                   @{
                     physicalLocation = @{
                       artifactLocation = @{
-                        uri = $test.Path.Replace("\", "/").Replace("$env:GITHUB_WORKSPACE".Replace("\", "/"), "")
+                        uri = $relativePath
                       }
                       region = @{
                         startLine = 1
@@ -198,9 +216,14 @@ jobs:
                 message = @{
                   text = "Pester executed $($result.TotalCount) tests. Passed: $($result.PassedCount), Failed: $($result.FailedCount), Skipped: $($result.SkippedCount)"
                 }
-                level = ($result.FailedCount -gt 0) ? "error" : "note"
+                level = if ($result.FailedCount -gt 0) { "error" } else { "note" }
               }
             )
+
+            # Debug: Print first few elements to check format
+            Write-Host "SARIF sample (first few elements):"
+            $sampleResults = $sarifObj.runs[0].results | Select-Object -First 2
+            $sampleResults | ConvertTo-Json -Depth 3
 
             # Save SARIF to file
             $sarifObj | ConvertTo-Json -Depth 20 | Out-File $testResultsSarif -Force
