@@ -52,7 +52,7 @@
         'Public/Elements/New-AMFactSet.ps1',
         'Public/Elements/New-AMFact.ps1',
         'Public/Elements/New-AMImageSet.ps1',
-        'Public/Elements/New-AMActionSet.ps1',
+        'Public/Actions/New-AMActionSet.ps1',
         'Public/Actions/New-AMOpenUrlAction.ps1',
         'Public/Actions/New-AMShowCardAction.ps1',
         'Public/Actions/New-AMToggleVisibilityAction.ps1',
