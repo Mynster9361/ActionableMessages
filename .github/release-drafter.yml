@@ -1,0 +1,94 @@
+name: Draft Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  draft-release:
+    name: Create Release Draft
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Module Info
+        id: module_info
+        shell: pwsh
+        run: |
+          $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
+          $ModuleInfo = Import-PowerShellDataFile $ManifestPath
+          $Version = $ModuleInfo.ModuleVersion
+          echo "version=$Version" >> $env:GITHUB_OUTPUT
+
+      - name: Get Previous Tag
+        id: previoustag
+        shell: pwsh
+        run: |
+          $CurrentTag = "${{ github.ref }}".Replace('refs/tags/', '')
+          $Tags = git tag -l --sort=-version:refname "v*"
+          $PreviousTag = ($Tags | Where-Object { $_ -ne $CurrentTag } | Select-Object -First 1)
+          echo "tag=$PreviousTag" >> $env:GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          $PreviousTag = "${{ steps.previoustag.outputs.tag }}"
+          $CurrentTag = "${{ github.ref }}".Replace('refs/tags/', '')
+
+          if ($PreviousTag) {
+            $Changelog = git log "${PreviousTag}..${CurrentTag}" --pretty=format:"* %s (%h)" --reverse
+          } else {
+            $Changelog = git log --pretty=format:"* %s (%h)" --reverse
+          }
+
+          $Changelog = $Changelog -join "`n"
+          $Changelog = "## Changes`n`n$Changelog`n`n## Full Commit History`n`n" +
+                       "https://github.com/${{ github.repository }}/compare/${{ steps.previoustag.outputs.tag }}...${{ github.ref_name }}"
+
+          # Use PowerShell to escape newlines for GitHub Actions output
+          $Changelog = $Changelog -replace "`n", "%0A"
+          echo "text=$Changelog" >> $env:GITHUB_OUTPUT
+
+      - name: Package Module
+        shell: pwsh
+        run: |
+          # Create zip package of the module
+          $ModuleVersion = "${{ steps.module_info.outputs.version }}"
+          $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
+          $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
+
+          # Create a temp directory for the module files
+          $TempDir = Join-Path -Path $env:TEMP -ChildPath "ActionableMessages"
+          New-Item -Path $TempDir -ItemType Directory -Force
+
+          # Copy module files to temp directory
+          Copy-Item -Path "$env:GITHUB_WORKSPACE\*" -Destination $TempDir -Recurse -Exclude @(".git", ".github")
+
+          # Create zip file
+          Compress-Archive -Path "$TempDir\*" -DestinationPath $ZipFilePath -Force
+
+      - name: Create Release Draft
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ActionableMessages v${{ steps.module_info.outputs.version }}
+          body: ${{ steps.changelog.outputs.text }}
+          draft: true
+          prerelease: false
+
+      - name: Upload Zip Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./ActionableMessages-${{ steps.module_info.outputs.version }}.zip
+          asset_name: ActionableMessages-${{ steps.module_info.outputs.version }}.zip
+          asset_content_type: application/zip

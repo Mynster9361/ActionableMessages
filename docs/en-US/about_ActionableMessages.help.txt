@@ -1,0 +1,65 @@
+TOPIC
+    about_ActionableMessages
+
+SHORT DESCRIPTION
+    Explains how to use the ActionableMessages PowerShell module to create interactive Adaptive Cards for use in Outlook and Microsoft 365.
+
+LONG DESCRIPTION
+    The ActionableMessages module provides cmdlets for creating rich, interactive content that allows email recipients to take actions directly from within their email client without switching applications or context.
+
+    ADAPTIVE CARDS BASICS
+    ---------------------
+    Adaptive Cards are a framework for exchanging card content in a common and consistent way. They automatically adapt to their host environment's look and feel while maintaining consistent behavior across different applications.
+
+    Key components of an Adaptive Card:
+    - Card: The root container for all content
+    - Elements: Visual components like text blocks, images, columns, and containers
+    - Actions: Interactive components like buttons that trigger specific behaviors
+    - Inputs: Form fields for collecting user input
+
+    BASIC WORKFLOW
+    -------------
+    1. Create a new card with New-AMCard
+    2. Add elements to the card with Add-AMElement
+    3. Export the card with Export-AMCard or Export-AMCardForEmail
+
+    ORIGINATOR ID
+    ------------
+    Every ActionableMessages card requires a valid Originator ID, which is a GUID that identifies the sender. For production use, you must register with Microsoft to obtain an approved ID through the Actionable Email Developer Dashboard.
+
+    For testing, you can use the test option available in the Actionable Email Developer Dashboard.
+
+EXAMPLES
+    Basic Card Creation:
+
+    # Create a new card
+    $card = New-AMCard -OriginatorId "your-originator-id"
+
+    # Add elements
+    $title = New-AMTextBlock -Text "Notification" -Size "Large" -Weight "Bolder"
+    Add-AMElement -Card $card -Element $title
+
+    $message = New-AMTextBlock -Text "This is an important notification." -Wrap $true
+    Add-AMElement -Card $card -Element $message
+
+    # Add an action
+    $action = New-AMOpenUrlAction -Title "View Details" -Url "https://example.com"
+    $actionSet = New-AMActionSet -Actions @($action)
+    Add-AMElement -Card $card -Element $actionSet
+
+    # Export
+    Export-AMCard -Card $card -Path ".\notification.json"
+
+NOTES
+    For more detailed documentation, examples, and function reference, see the module's README.md file.
+
+    Before using Actionable Messages in production environments, you must register with Microsoft:
+    https://docs.microsoft.com/en-us/outlook/actionable-messages/email-dev-dashboard
+
+SEE ALSO
+    https://adaptivecards.io/
+    https://docs.microsoft.com/en-us/outlook/actionable-messages/
+    New-AMCard
+    Add-AMElement
+    Export-AMCard
+    Export-AMCardForEmail

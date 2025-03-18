@@ -1,0 +1,82 @@
+name: Publish PowerShell Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionBump:
+        description: 'Version bump type (major, minor, patch)'
+        required: true
+        default: 'patch'
+      releaseNotes:
+        description: 'Release notes'
+        required: false
+
+jobs:
+  publish:
+    name: Publish to PowerShell Gallery
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install PowerShellGet
+        shell: pwsh
+        run: |
+          Install-Module -Name PowerShellGet -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Update Module Version
+        id: version
+        shell: pwsh
+        run: |
+          $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
+          $Manifest = Import-PowerShellDataFile $ManifestPath
+          $CurrentVersion = [Version]$Manifest.ModuleVersion
+
+          $VersionBump = "${{ github.event.inputs.versionBump }}"
+
+          switch ($VersionBump) {
+            "major" { $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0) }
+            "minor" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0) }
+            "patch" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1) }
+            default { $NewVersion = $CurrentVersion }
+          }
+
+          $ManifestContent = Get-Content -Path $ManifestPath -Raw
+          $ManifestContent = $ManifestContent -replace "ModuleVersion = ['`"]$($CurrentVersion)['`"]", "ModuleVersion = '$NewVersion'"
+          Set-Content -Path $ManifestPath -Value $ManifestContent
+
+          "Updated version from $CurrentVersion to $NewVersion"
+          echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Build and Test Module
+        shell: pwsh
+        run: |
+          # Run Pester tests
+          Install-Module Pester -Force -SkipPublisherCheck
+          Invoke-Pester -Path ".\Tests" -PassThru
+
+      - name: Publish Module
+        shell: pwsh
+        run: |
+          $ReleaseNotes = "${{ github.event.inputs.releaseNotes }}"
+          if (-not $ReleaseNotes) {
+            $ReleaseNotes = "Release version ${{ steps.version.outputs.new_version }}"
+          }
+
+          # Import the manifest
+          $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
+          $ModuleInfo = Import-PowerShellDataFile $ManifestPath
+
+          # Publish the module
+          Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.PS_GALLERY_API_KEY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
+
+      - name: Create Tag
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/v${{ steps.version.outputs.new_version }}',
+              sha: context.sha
+            })
