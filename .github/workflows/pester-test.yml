@@ -43,53 +43,53 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module -Name Pester -MinimumVersion 5.3.0 -Force -SkipPublisherCheck
 
-          - name: Run Pester Tests
-          id: pester
-          shell: pwsh
-          run: |
-            $testResults = $null
-            $testResultsFile = "$env:GITHUB_WORKSPACE/test-results.xml"
-            $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
+      - name: Run Pester Tests
+        id: pester
+        shell: pwsh
+        run: |
+          $testResults = $null
+          $testResultsFile = "$env:GITHUB_WORKSPACE/test-results.xml"
+          $testResultsJson = "$env:GITHUB_WORKSPACE/test-results.json"
 
-            try {
-              # Explicitly import Pester
-              Import-Module Pester -ErrorAction Stop
-              $config = [PesterConfiguration]::Default
-              $config.Run.Path = "$env:GITHUB_WORKSPACE/Tests"
-              $config.TestResult.Enabled = $true
-              $config.TestResult.OutputFormat = "NUnitXml"
-              $config.TestResult.OutputPath = $testResultsFile
-              $config.Output.Verbosity = "Detailed"
+          try {
+            # Explicitly import Pester
+            Import-Module Pester -ErrorAction Stop
+            $config = [PesterConfiguration]::Default
+            $config.Run.Path = "$env:GITHUB_WORKSPACE/Tests"
+            $config.TestResult.Enabled = $true
+            $config.TestResult.OutputFormat = "NUnitXml"
+            $config.TestResult.OutputPath = $testResultsFile
+            $config.Output.Verbosity = "Detailed"
 
-              $testResults = Invoke-Pester -Configuration $config
+            $testResults = Invoke-Pester -Configuration $config
 
-              # DEBUG: Output the structure of test results
-              Write-Host "Test results object properties:"
-              $testResults | Get-Member | Format-Table -Property Name, MemberType
+            # DEBUG: Output the structure of test results
+            Write-Host "Test results object properties:"
+            $testResults | Get-Member | Format-Table -Property Name, MemberType
 
-              # Create JSON for easier parsing in later steps - Fix property access for Pester 5.x
-              $summary = @{
-                TotalCount = $testResults.TotalCount
-                PassedCount = $testResults.PassedCount
-                FailedCount = $testResults.FailedCount
-                SkippedCount = ($testResults.Skipped | Measure-Object).Count
-                NotRunCount = ($testResults.NotRun | Measure-Object).Count
-                Duration = $testResults.Duration.TotalSeconds
-                FailedTests = @($testResults.Failed | ForEach-Object {
-                  @{
-                    Name = $_.Name
-                    Path = $_.Path
-                    ErrorMessage = $_.ErrorRecord.Exception.Message
-                  }
-                })
-              }
+            # Create JSON for easier parsing in later steps - Fix property access for Pester 5.x
+            $summary = @{
+              TotalCount = $testResults.TotalCount
+              PassedCount = $testResults.PassedCount
+              FailedCount = $testResults.FailedCount
+              SkippedCount = ($testResults.Skipped | Measure-Object).Count
+              NotRunCount = ($testResults.NotRun | Measure-Object).Count
+              Duration = $testResults.Duration.TotalSeconds
+              FailedTests = @($testResults.Failed | ForEach-Object {
+                @{
+                  Name = $_.Name
+                  Path = $_.Path
+                  ErrorMessage = $_.ErrorRecord.Exception.Message
+                }
+              })
+            }
 
-              # Output summary for debugging
-              Write-Host "Result summary: $(ConvertTo-Json -InputObject $summary)"
+            # Output summary for debugging
+            Write-Host "Result summary: $(ConvertTo-Json -InputObject $summary)"
 
-              # Ensure directory exists before writing file
-              Write-Host "Writing test results to: $testResultsJson"
-              $summary | ConvertTo-Json -Depth 5 > $testResultsJson
+            # Ensure directory exists before writing file
+            Write-Host "Writing test results to: $testResultsJson"
+            $summary | ConvertTo-Json -Depth 5 > $testResultsJson
 
       - name: Post Test Results Comment
         if: github.event_name == 'pull_request' && always()
