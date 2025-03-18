@@ -72,6 +72,8 @@ jobs:
               })
             }
 
+            # Ensure directory exists before writing file
+            Write-Host "Writing test results to: $testResultsJson"
             $summary | ConvertTo-Json -Depth 5 > $testResultsJson
 
             # Set output variables
@@ -102,73 +104,122 @@ jobs:
             ${{ github.workspace }}/test-results.xml
             ${{ github.workspace }}/test-results.json
 
-      - name: Post Test Results Comment
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const testResults = JSON.parse(fs.readFileSync('${{ github.workspace }}/test-results.json', 'utf8'));
+            - name: Post Test Results Comment
+            if: github.event_name == 'pull_request' && always()
+            uses: actions/github-script@v6
+            with:
+              github-token: ${{ secrets.GITHUB_TOKEN }}
+              script: |
+                const fs = require('fs');
 
-            const formatDuration = (seconds) => {
-              const mins = Math.floor(seconds / 60);
-              const secs = Math.round(seconds % 60);
-              return `${mins}m ${secs}s`;
-            };
+                try {
+                  // Log workspace path for debugging
+                  console.log(`GitHub workspace path: ${process.env.GITHUB_WORKSPACE}`);
+                  const resultPath = `${process.env.GITHUB_WORKSPACE}/test-results.json`;
+                  console.log(`Looking for test results at: ${resultPath}`);
 
-            let resultIcon = testResults.FailedCount > 0 ? '❌' : '✅';
-            let resultColor = testResults.FailedCount > 0 ? 'red' : 'green';
+                  // Check if file exists
+                  if (!fs.existsSync(resultPath)) {
+                    console.log(`Test results file not found at ${resultPath}`);
+                    const body = `## Pester Test Results ⚠️\n\nNo test results file was found. Tests may have failed to run properly.\n\n[View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
 
-            let body = `## Pester Test Results ${resultIcon}\n\n`;
-            body += `- **Total Tests:** ${testResults.TotalCount}\n`;
-            body += `- **Passed:** ${testResults.PassedCount} ✅\n`;
-            body += `- **Failed:** ${testResults.FailedCount} ${testResults.FailedCount > 0 ? '❌' : ''}\n`;
-            body += `- **Skipped:** ${testResults.SkippedCount} ${testResults.SkippedCount > 0 ? '⚠️' : ''}\n`;
-            body += `- **Not Run:** ${testResults.NotRunCount}\n`;
-            body += `- **Duration:** ${formatDuration(testResults.Duration)}\n\n`;
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: context.issue.number,
+                      body
+                    });
+                    return;
+                  }
 
-            if (testResults.FailedCount > 0) {
-              body += `### Failed Tests\n\n`;
-              testResults.FailedTests.forEach(test => {
-                body += `<details>\n`;
-                body += `<summary><b>${test.Name}</b></summary>\n\n`;
-                body += `**Test:** ${test.Name}\n`;
-                body += `**Path:** ${test.Path}\n`;
-                body += `**Error:** ${test.ErrorMessage}\n`;
-                body += `</details>\n\n`;
-              });
-            }
+                  // Read and parse test results
+                  const testResults = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+                  console.log('Test results loaded successfully');
 
-            body += `[View detailed test results](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+                  const formatDuration = (seconds) => {
+                    if (!seconds && seconds !== 0) return 'n/a';
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.round(seconds % 60);
+                    return `${mins}m ${secs}s`;
+                  };
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
+                  // Generate test result summary
+                  let resultIcon = (testResults.FailedCount > 0) ? '❌' : '✅';
+                  let resultColor = (testResults.FailedCount > 0) ? 'red' : 'green';
 
-            // Look for an existing comment from this workflow
-            const existingComment = comments.find(comment =>
-              comment.user.login === 'github-actions[bot]' &&
-              comment.body.includes('## Pester Test Results')
-            );
+                  let body = `## Pester Test Results ${resultIcon}\n\n`;
+                  body += `- **Total Tests:** ${testResults.TotalCount || 0}\n`;
+                  body += `- **Passed:** ${testResults.PassedCount || 0} ✅\n`;
+                  body += `- **Failed:** ${testResults.FailedCount || 0} ${(testResults.FailedCount > 0) ? '❌' : ''}\n`;
+                  body += `- **Skipped:** ${testResults.SkippedCount || 0} ${(testResults.SkippedCount > 0) ? '⚠️' : ''}\n`;
+                  body += `- **Not Run:** ${testResults.NotRunCount || 0}\n`;
+                  body += `- **Duration:** ${formatDuration(testResults.Duration)}\n\n`;
 
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body
-              });
-            }
+                  // Add failed test details if any
+                  if (testResults.FailedCount > 0 && Array.isArray(testResults.FailedTests)) {
+                    body += `### Failed Tests\n\n`;
+                    testResults.FailedTests.forEach(test => {
+                      body += `<details>\n`;
+                      body += `<summary><b>${test.Name || 'Unnamed test'}</b></summary>\n\n`;
+                      body += `**Test:** ${test.Name || 'Unnamed test'}\n`;
+                      body += `**Path:** ${test.Path || 'Path not available'}\n`;
+                      body += `**Error:** ${test.ErrorMessage || 'No error message available'}\n`;
+                      body += `</details>\n\n`;
+                    });
+                  }
+
+                  body += `[View detailed test results](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+                  // Find and update existing comment or create new one
+                  const { data: comments } = await github.rest.issues.listComments({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number
+                  });
+
+                  const existingComment = comments.find(comment =>
+                    comment.user.login === 'github-actions[bot]' &&
+                    comment.body.includes('## Pester Test Results')
+                  );
+
+                  if (existingComment) {
+                    console.log(`Updating existing comment ID: ${existingComment.id}`);
+                    await github.rest.issues.updateComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      comment_id: existingComment.id,
+                      body
+                    });
+                  } else {
+                    console.log('Creating new comment');
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: context.issue.number,
+                      body
+                    });
+                  }
+
+                  console.log('Comment posted successfully');
+
+                } catch (error) {
+                  console.error('Error posting test results comment:');
+                  console.error(error);
+
+                  // Post error comment instead of failing
+                  try {
+                    const errorBody = `## Pester Test Results ⚠️\n\nThere was an error processing the test results:\n\`\`\`\n${error.message}\n\`\`\`\n\n[View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: context.issue.number,
+                      body: errorBody
+                    });
+                  } catch (commentError) {
+                    console.error('Failed to post error comment:', commentError);
+                  }
+                }
 
       - name: Check Test Results
         if: always()
