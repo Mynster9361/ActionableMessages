@@ -11,7 +11,7 @@
     RootModule = 'ActionableMessages.psm1'  # Add this line to reference the PSM1 file
     PrivateData       = @{
         PSData = @{
-            Tags       = @('Actionable Messages', 'PowerShell', 'Outlook')
+            Tags       = @('ActionableMessages', 'PowerShell', 'Outlook')
             ProjectUri = 'https://github.com/Mynster9361/ActionableMessages'
             LicenseUri = 'https://github.com/Mynster9361/ActionableMessages/blob/main/LICENSE'
         }
