@@ -9,6 +9,13 @@
     Copyright = 'Copyright © 2025 Mynster'
     Description = 'A PowerShell module for creating and managing Actionable Messages.'
     RootModule = 'ActionableMessages.psm1'  # Add this line to reference the PSM1 file
+    PrivateData       = @{
+        PSData = @{
+            Tags       = @('ActionableMessages', 'PowerShell', 'Outlook')
+            ProjectUri = 'https://github.com/Mynster9361/ActionableMessages'
+            LicenseUri = 'https://github.com/Mynster9361/ActionableMessages/blob/main/LICENSE'
+        }
+    }
     FunctionsToExport = @(
         'New-AMCard',
         'Add-AMElement',
