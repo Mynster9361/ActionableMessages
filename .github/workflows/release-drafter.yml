@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (without v prefix)'
+        required: true
+        default: '1.0.0'
 
 permissions:
   contents: write  # Required for creating releases and uploading assets
@@ -17,13 +23,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Debug Environment
+        shell: pwsh
+        run: |
+          Write-Host "GitHub Ref: ${{ github.ref }}"
+          Write-Host "GitHub Ref Name: ${{ github.ref_name }}"
+          Write-Host "GitHub Repository: ${{ github.repository }}"
+
       - name: Get Module Info
         id: module_info
         shell: pwsh
         run: |
           $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
-          $ModuleInfo = Import-PowerShellDataFile $ManifestPath
-          $Version = $ModuleInfo.ModuleVersion
+
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $Version = '${{ github.event.inputs.version }}'
+          } else {
+            $ModuleInfo = Import-PowerShellDataFile $ManifestPath
+            $Version = $ModuleInfo.ModuleVersion
+          }
+
+          Write-Host "Using version: $Version"
           echo "version=$Version" >> $env:GITHUB_OUTPUT
 
       - name: Install ChangelogManagement
@@ -43,12 +63,14 @@ jobs:
           if (Test-Path $ChangelogPath) {
             # Read the changelog content
             $Content = Get-Content -Path $ChangelogPath -Raw
+            Write-Host "Changelog file found, looking for version $Version"
 
             # Look for the specific version section
             $VersionPattern = "## \[$Version\]"
             $NextVersionPattern = "## \["
 
             if ($Content -match $VersionPattern) {
+              Write-Host "Found version section for $Version"
               $StartIndex = $Content.IndexOf($VersionPattern)
               $StartIndex = $StartIndex + $VersionPattern.Length
 
@@ -84,14 +106,19 @@ jobs:
             Write-Host "No changelog file found"
           }
 
-          # Format for GitHub Actions output
-          $ReleaseNotes = $ReleaseNotes -replace '%', '%25' -replace "`n", '%0A' -replace "`r", '%0D'
+          # Save to a file for GitHub CLI
+          $ReleaseNotesPath = "release-notes.md"
+          Set-Content -Path $ReleaseNotesPath -Value $ReleaseNotes -NoNewline
+
+          # Also set as output
+          $EscapedNotes = $ReleaseNotes -replace '%', '%25' -replace "`n", '%0A' -replace "`r", '%0D'
           echo "text<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$ReleaseNotes" >> $env:GITHUB_OUTPUT
+          echo "$EscapedNotes" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
 
           # Display what we're using
           Write-Host "Release notes extracted for version $Version"
+          Write-Host "Release notes length: $($ReleaseNotes.Length) characters"
 
       - name: Package Module
         shell: pwsh
@@ -111,24 +138,32 @@ jobs:
           # Create zip file
           Compress-Archive -Path "$TempDir\*" -DestinationPath $ZipFilePath -Force
 
-      - name: Create Release Draft
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ActionableMessages v${{ steps.module_info.outputs.version }}
-          body: ${{ steps.changelog.outputs.text }}
-          draft: true
-          prerelease: false
+          Write-Host "Created package at: $ZipFilePath"
 
-      - name: Upload Zip Asset
-        uses: actions/upload-release-asset@v1
+      - name: Install GitHub CLI
+        run: choco install gh -y
+
+      - name: Create Release Draft
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ActionableMessages-${{ steps.module_info.outputs.version }}.zip
-          asset_name: ActionableMessages-${{ steps.module_info.outputs.version }}.zip
-          asset_content_type: application/zip
+        run: |
+          $tagName = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { "v${{ steps.module_info.outputs.version }}" } else { "${{ github.ref_name }}" }
+          $releaseName = "ActionableMessages v${{ steps.module_info.outputs.version }}"
+          $zipPath = "./ActionableMessages-${{ steps.module_info.outputs.version }}.zip"
+
+          Write-Host "Creating draft release for tag: $tagName"
+          Write-Host "Release name: $releaseName"
+          Write-Host "Asset path: $zipPath"
+
+          # Create the release
+          gh release create $tagName `
+            --title "$releaseName" `
+            --notes-file "release-notes.md" `
+            --draft `
+            --repo "${{ github.repository }}"
+
+          # Upload the asset
+          gh release upload $tagName $zipPath --repo "${{ github.repository }}"
+
+          Write-Host "Release draft created successfully"
