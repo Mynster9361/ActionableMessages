@@ -60,63 +60,41 @@ jobs:
             $content = Get-Content -Path $file.FullName -Raw
             $cmdName = $file.BaseName
 
-            $frontMatter = @"
----
-layout: page
-title: $cmdName
-permalink: /modules/actionablemessages/commands/$cmdName/
----
-
-"@
-
+            # Use string concatenation instead of here-strings
+            $frontMatter = "---`r`nlayout: page`r`ntitle: $cmdName`r`npermalink: /modules/actionablemessages/commands/$cmdName/`r`n---`r`n`r`n"
             $newContent = $frontMatter + $content
             Set-Content -Path $file.FullName -Value $newContent
           }
 
           # Create commands index page
           $commandsIndexPath = "$cmdDocsPath/index.md"
-          @"
----
-layout: page
-title: ActionableMessages Commands
-permalink: /modules/actionablemessages/commands/
----
-
-# ActionableMessages Commands
-
-$(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``]($($_.Name)/)" } | Sort-Object)
-"@ | Out-File -FilePath $commandsIndexPath -Encoding utf8
+          $commandsIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages Commands`r`npermalink: /modules/actionablemessages/commands/`r`n---`r`n`r`n"
+          $commandsIndexContent += "# ActionableMessages Commands`r`n`r`n"
+          $commandLinks = Get-Command -Module ActionableMessages | ForEach-Object {
+            "- [``$($_.Name)``]($($_.Name)/)"
+          } | Sort-Object
+          $commandsIndexContent += [string]::Join("`r`n", $commandLinks)
+          Set-Content -Path $commandsIndexPath -Value $commandsIndexContent
 
           # Create main index page with Jekyll front matter
-          @"
----
-layout: page
-title: ActionableMessages PowerShell Module
-permalink: /modules/actionablemessages/
----
-
-# ActionableMessages PowerShell Module
-
-A PowerShell module for creating Microsoft Actionable Messages.
-
-## Installation
-
-```powershell
-Install-Module -Name ActionableMessages -Scope CurrentUser
-```
-
-## Quick Start
-
-```powershell
-$card = New-AMCard -ThemeColor "#0078D7"
-Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
-$jsonCard = Export-AMCard -Card $card
-```
-
-## Command Reference
-
-$(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name)/)" } | Sort-Object)
-"@ | Out-File -FilePath "$targetDir/index.md" -Encoding utf8
+          $mainIndexPath = "$targetDir/index.md"
+          $mainIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages PowerShell Module`r`npermalink: /modules/actionablemessages/`r`n---`r`n`r`n"
+          $mainIndexContent += "# ActionableMessages PowerShell Module`r`n`r`n"
+          $mainIndexContent += "A PowerShell module for creating Microsoft Actionable Messages.`r`n`r`n"
+          $mainIndexContent += "## Installation`r`n`r`n"
+          $mainIndexContent += "```powershell`r`nInstall-Module -Name ActionableMessages -Scope CurrentUser`r`n````r`n`r`n"
+          $mainIndexContent += "## Quick Start`r`n`r`n"
+          $mainIndexContent += "```powershell`r`n"
+          $mainIndexContent += '$card = New-AMCard -ThemeColor "#0078D7"' + "`r`n"
+          $mainIndexContent += '$Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")' + "`r`n"
+          $mainIndexContent += '$jsonCard = Export-AMCard -Card $card' + "`r`n"
+          $mainIndexContent += "````r`n`r`n"
+          $mainIndexContent += "## Command Reference`r`n`r`n"
+          $cmdLinks = Get-Command -Module ActionableMessages | ForEach-Object {
+            "- [``$($_.Name)``](commands/$($_.Name)/)"
+          } | Sort-Object
+          $mainIndexContent += [string]::Join("`r`n", $cmdLinks)
+          Set-Content -Path $mainIndexPath -Value $mainIndexContent
 
       - name: Commit documentation to GitHub Pages repo
         run: |
