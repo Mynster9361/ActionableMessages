@@ -1,130 +1,67 @@
 name: Draft Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (without v prefix)'
+      versionBump:
+        description: 'Version bump type (major, minor, patch)'
         required: true
-        default: '1.0.0'
+        default: 'patch'
+      releaseNotes:
+        description: 'Additional release notes'
+        required: false
 
 permissions:
-  contents: write  # Required for creating releases and uploading assets
+  contents: write
 
 jobs:
-  draft-release:
-    name: Create Release Draft
+  release:
+    name: Release to PowerShell Gallery
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Debug Environment
-        shell: pwsh
-        run: |
-          Write-Host "GitHub Ref: ${{ github.ref }}"
-          Write-Host "GitHub Ref Name: ${{ github.ref_name }}"
-          Write-Host "GitHub Repository: ${{ github.repository }}"
-
-      - name: Get Module Info
-        id: module_info
+      - name: Update Module Version
+        id: version
         shell: pwsh
         run: |
           $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
+          $Manifest = Import-PowerShellDataFile $ManifestPath
+          $CurrentVersion = [Version]$Manifest.ModuleVersion
 
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $Version = '${{ github.event.inputs.version }}'
-          } else {
-            $ModuleInfo = Import-PowerShellDataFile $ManifestPath
-            $Version = $ModuleInfo.ModuleVersion
+          $VersionBump = "${{ github.event.inputs.versionBump }}"
+
+          switch ($VersionBump) {
+            "major" { $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0) }
+            "minor" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0) }
+            "patch" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1) }
+            default { $NewVersion = $CurrentVersion }
           }
 
-          Write-Host "Using version: $Version"
-          echo "version=$Version" >> $env:GITHUB_OUTPUT
+          Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
 
-      - name: Install ChangelogManagement
-        shell: pwsh
-        run: |
-          Install-Module -Name ChangelogManagement -Force -SkipPublisherCheck
+          Write-Host "Updated version from $CurrentVersion to $NewVersion"
+          echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
-      - name: Extract Changelog for Release
+      - name: Update Changelog
         id: changelog
+        uses: natescherer/changelog-management-action@v1
+        with:
+          mode: release
+          releaseVersion: ${{ steps.version.outputs.new_version }}
+
+      - name: Run Tests
         shell: pwsh
         run: |
-          Import-Module ChangelogManagement
-
-          $ChangelogPath = "CHANGELOG.md"
-          $Version = "${{ steps.module_info.outputs.version }}"
-
-          if (Test-Path $ChangelogPath) {
-            # Read the changelog content
-            $Content = Get-Content -Path $ChangelogPath -Raw
-            Write-Host "Changelog file found, looking for version $Version"
-
-            # Look for the specific version section
-            $VersionPattern = "## \[$Version\]"
-            $NextVersionPattern = "## \["
-
-            if ($Content -match $VersionPattern) {
-              Write-Host "Found version section for $Version"
-              $StartIndex = $Content.IndexOf($VersionPattern)
-              $StartIndex = $StartIndex + $VersionPattern.Length
-
-              $EndIndex = $Content.IndexOf($NextVersionPattern, $StartIndex)
-              if ($EndIndex -gt 0) {
-                $ReleaseNotes = $Content.Substring($StartIndex, $EndIndex - $StartIndex).Trim()
-              } else {
-                # This is the last/only version in the changelog
-                $ReleaseNotes = $Content.Substring($StartIndex).Trim()
-              }
-
-              # Also check if this needs to be released in the changelog
-              # If it's still marked as [Unreleased], update it
-              if ($Content -match "## \[Unreleased\]") {
-                Write-Host "Releasing changelog for version $Version"
-                Update-Changelog -Path $ChangelogPath -ReleaseVersion $Version
-
-                # Commit the updated changelog
-                git config --local user.email "action@github.com"
-                git config --local user.name "GitHub Action"
-                git add $ChangelogPath
-                git commit -m "docs: release changelog for v$Version [skip ci]"
-                git push
-              }
-            } else {
-              # No specific version section found
-              $ReleaseNotes = "Release version $Version"
-              Write-Host "No specific section found for version $Version in changelog"
-            }
-          } else {
-            # No changelog exists
-            $ReleaseNotes = "Release version $Version"
-            Write-Host "No changelog file found"
-          }
-
-          # Save to a file for GitHub CLI
-          $ReleaseNotesPath = "release-notes.md"
-          Set-Content -Path $ReleaseNotesPath -Value $ReleaseNotes -NoNewline
-
-          # Also set as output
-          $EscapedNotes = $ReleaseNotes -replace '%', '%25' -replace "`n", '%0A' -replace "`r", '%0D'
-          echo "text<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$EscapedNotes" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
-
-          # Display what we're using
-          Write-Host "Release notes extracted for version $Version"
-          Write-Host "Release notes length: $($ReleaseNotes.Length) characters"
+          Install-Module Pester -Force -SkipPublisherCheck
+          Invoke-Pester -Path "./Tests" -PassThru
 
       - name: Package Module
         shell: pwsh
         run: |
-          # Create zip package of the module
-          $ModuleVersion = "${{ steps.module_info.outputs.version }}"
+          $ModuleVersion = "${{ steps.version.outputs.new_version }}"
           $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
           $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
 
@@ -138,32 +75,24 @@ jobs:
           # Create zip file
           Compress-Archive -Path "$TempDir\*" -DestinationPath $ZipFilePath -Force
 
-          Write-Host "Created package at: $ZipFilePath"
+      - name: Create Tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: v${{ steps.version.outputs.new_version }}
+          message: "Release v${{ steps.version.outputs.new_version }}"
 
-      - name: Install GitHub CLI
-        run: choco install gh -y
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.version.outputs.new_version }}
+          tag_name: v${{ steps.version.outputs.new_version }}
+          body: |
+            # ActionableMessages v${{ steps.version.outputs.new_version }}
 
-      - name: Create Release Draft
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tagName = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { "v${{ steps.module_info.outputs.version }}" } else { "${{ github.ref_name }}" }
-          $releaseName = "ActionableMessages v${{ steps.module_info.outputs.version }}"
-          $zipPath = "./ActionableMessages-${{ steps.module_info.outputs.version }}.zip"
+            ## Changes
+            ${{ steps.changelog.outputs.releasenotes }}
 
-          Write-Host "Creating draft release for tag: $tagName"
-          Write-Host "Release name: $releaseName"
-          Write-Host "Asset path: $zipPath"
-
-          # Create the release
-          gh release create $tagName `
-            --title "$releaseName" `
-            --notes-file "release-notes.md" `
-            --draft `
-            --repo "${{ github.repository }}"
-
-          # Upload the asset
-          gh release upload $tagName $zipPath --repo "${{ github.repository }}"
-
-          Write-Host "Release draft created successfully"
+            ${{ github.event.inputs.releaseNotes }}
+          files: |
+            ActionableMessages-${{ steps.version.outputs.new_version }}.zip
+          draft: true

@@ -1,118 +1,67 @@
-name: Publish PowerShell Module
+name: Publish to PowerShell Gallery
 
 on:
-  workflow_dispatch:
-    inputs:
-      versionBump:
-        description: 'Version bump type (major, minor, patch)'
-        required: true
-        default: 'patch'
-      releaseNotes:
-        description: 'Release notes'
-        required: false
+  release:
+    types: [published]  # Only trigger when a release is published (not drafted or pre-released)
+
+permissions:
+  contents: read
 
 jobs:
   publish:
     name: Publish to PowerShell Gallery
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # This ensures we have full history for the changelog
+          ref: ${{ github.event.release.tag_name }}  # Check out the tagged release
 
-      - name: Install PowerShellGet and Required Modules
-        shell: pwsh
-        run: |
-          Install-Module -Name PowerShellGet -Force -SkipPublisherCheck -Scope CurrentUser
-          Install-Module -Name ChangelogManagement -Force -SkipPublisherCheck -Scope CurrentUser
-
-      - name: Update Module Version
+      - name: Get Version from Tag
         id: version
         shell: pwsh
         run: |
-          $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
-          $Manifest = Import-PowerShellDataFile $ManifestPath
-          $CurrentVersion = [Version]$Manifest.ModuleVersion
+          $Version = "${{ github.event.release.tag_name }}".TrimStart('v')
+          echo "version=$Version" >> $env:GITHUB_OUTPUT
 
-          $VersionBump = "${{ github.event.inputs.versionBump }}"
-
-          switch ($VersionBump) {
-            "major" { $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0) }
-            "minor" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0) }
-            "patch" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1) }
-            default { $NewVersion = $CurrentVersion }
-          }
-
-          $ManifestContent = Get-Content -Path $ManifestPath -Raw
-          $ManifestContent = $ManifestContent -replace "ModuleVersion = ['`"]$($CurrentVersion)['`"]", "ModuleVersion = '$NewVersion'"
-          Set-Content -Path $ManifestPath -Value $ManifestContent
-
-          "Updated version from $CurrentVersion to $NewVersion"
-          echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
-
-      - name: Update Changelog
-        shell: pwsh
-        run: |
-          Import-Module ChangelogManagement
-          $ChangelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
-
-          # Create changelog if it doesn't exist
-          if (-not (Test-Path -Path $ChangelogPath)) {
-            Write-Host "Creating new CHANGELOG.md file..."
-            New-Changelog -Path $ChangelogPath -Version "${{ steps.version.outputs.new_version }}" -ReleaseStatus "Unreleased"
-
-            # Add initial entry if this is a brand new changelog
-            $ReleaseNotes = "${{ github.event.inputs.releaseNotes }}"
-            if ($ReleaseNotes) {
-              Add-ChangelogData -Path $ChangelogPath -Type "Added" -Data $ReleaseNotes
-            } else {
-              Add-ChangelogData -Path $ChangelogPath -Type "Added" -Data "Initial release of ActionableMessages module"
-            }
-          }
-
-          # Update the changelog to mark this version as released
-          Update-Changelog -Path $ChangelogPath -ReleaseVersion "${{ steps.version.outputs.new_version }}"
-
-          # Display the updated changelog
-          Get-Content -Path $ChangelogPath
-
-          # Commit the changes
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add CHANGELOG.md
-          git add ActionableMessages.psd1
-          git commit -m "chore: release version ${{ steps.version.outputs.new_version }}"
-          git push
-
-      - name: Build and Test Module
-        shell: pwsh
-        run: |
-          # Run Pester tests
-          Install-Module Pester -Force -SkipPublisherCheck
-          Invoke-Pester -Path ".\Tests" -PassThru
-
-      - name: Publish Module
-        shell: pwsh
-        run: |
-          $ReleaseNotes = "${{ github.event.inputs.releaseNotes }}"
-          if (-not $ReleaseNotes) {
-            $ReleaseNotes = "Release version ${{ steps.version.outputs.new_version }}"
-          }
-
-          # Import the manifest
+          # Verify the manifest version matches the release tag
           $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
           $ModuleInfo = Import-PowerShellDataFile $ManifestPath
+          $ManifestVersion = $ModuleInfo.ModuleVersion
+
+          if ($Version -ne $ManifestVersion) {
+            Write-Warning "Module manifest version ($ManifestVersion) does not match release tag ($Version)"
+          }
+
+      - name: Run Tests
+        shell: pwsh
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck
+          Invoke-Pester -Path "./Tests" -PassThru
+
+      - name: Publish to PowerShell Gallery
+        shell: pwsh
+        run: |
+          # Get the release notes from the GitHub release
+          $ReleaseNotes = @"
+          ${{ github.event.release.body }}
+
+          View the full release on GitHub: ${{ github.event.release.html_url }}
+          "@
 
           # Publish the module
           Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Update Module Status
+        if: success()
+        uses: peter-evans/create-or-update-comment@v3
         with:
-          tag_name: v${{ steps.version.outputs.new_version }}
-          name: Release v${{ steps.version.outputs.new_version }}
-          body_path: CHANGELOG.md  # Use the changelog as the release description
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.release.id }}
+          body: |
+            ### ✅ Published to PowerShell Gallery
+
+            The module has been successfully published to the PowerShell Gallery.
+
+            You can install it with:
+            ```powershell
+            Install-Module ActionableMessages -Scope CurrentUser
+            ```

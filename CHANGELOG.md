@@ -46,14 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - add write permissions for repository contents in update-changelog workflow
 
-[Unreleased]: https://github.com/natescherer/ChangelogManagement/compare/v3.1.0..HEAD
-[3.1.0]: https://github.com/natescherer/ChangelogManagement/compare/v3.0.1..v3.1.0
-[3.0.1]: https://github.com/natescherer/ChangelogManagement/compare/v3.0.0..v3.0.1
-[3.0.0]: https://github.com/natescherer/ChangelogManagement/compare/v2.1.4..v3.0.0
-[2.1.4]: /compare/v2.1.3..v2.1.4
-[2.1.3]: https://github.com/natescherer/ChangelogManagement/compare/v2.1.2..v2.1.3
-[2.1.2]: https://github.com/natescherer/ChangelogManagement/compare/v2.1.1..v2.1.2
-[2.1.1]: https://github.com/natescherer/ChangelogManagement/compare/v2.1.0..v2.1.1
-[2.1.0]: https://github.com/natescherer/ChangelogManagement/compare/v2.0.0..v2.1.0
-[2.0.0]: https://github.com/natescherer/ChangelogManagement/compare/v1.0.0..v2.0.0
-[1.0.0]: https://github.com/natescherer/ChangelogManagement/tree/v1.0.0
+[Unreleased]: https://github.com/Mynster9361/ActionableMessages/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Mynster9361/ActionableMessages/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/Mynster9361/ActionableMessages/releases/tag/v1.0.0
