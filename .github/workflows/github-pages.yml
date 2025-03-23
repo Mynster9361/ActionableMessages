@@ -99,6 +99,17 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs-site
-          target-folder: docs  # Deploy to /docs path to avoid conflicts
+          target-folder: /  # Deploy to /docs path to avoid conflicts
           clean: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create .nojekyll file
+        shell: pwsh
+        run: |
+          New-Item -Path "./docs-site/.nojekyll" -ItemType File -Force
+
+      - name: List generated files
+        shell: pwsh
+        run: |
+          Write-Host "Files in docs-site:"
+          Get-ChildItem -Path ./docs-site -Recurse | Select-Object FullName
