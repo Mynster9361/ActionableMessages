@@ -32,27 +32,6 @@ jobs:
           $PreviousTag = ($Tags | Where-Object { $_ -ne $CurrentTag } | Select-Object -First 1)
           echo "tag=$PreviousTag" >> $env:GITHUB_OUTPUT
 
-      - name: Generate Changelog
-        id: changelog
-        shell: pwsh
-        run: |
-          $PreviousTag = "${{ steps.previoustag.outputs.tag }}"
-          $CurrentTag = "${{ github.ref }}".Replace('refs/tags/', '')
-
-          if ($PreviousTag) {
-            $Changelog = git log "${PreviousTag}..${CurrentTag}" --pretty=format:"* %s (%h)" --reverse
-          } else {
-            $Changelog = git log --pretty=format:"* %s (%h)" --reverse
-          }
-
-          $Changelog = $Changelog -join "`n"
-          $Changelog = "## Changes`n`n$Changelog`n`n## Full Commit History`n`n" +
-                       "https://github.com/${{ github.repository }}/compare/${{ steps.previoustag.outputs.tag }}...${{ github.ref_name }}"
-
-          # Use PowerShell to escape newlines for GitHub Actions output
-          $Changelog = $Changelog -replace "`n", "%0A"
-          echo "text=$Changelog" >> $env:GITHUB_OUTPUT
-
       - name: Package Module
         shell: pwsh
         run: |
