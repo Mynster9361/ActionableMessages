@@ -1,0 +1,60 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Public/**'
+      - 'docs/**'
+      - 'docs-site/**'
+      - '.github/workflows/docs-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PowerShell
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Install PowerShell modules
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PlatyPS -Force
+
+      - name: Generate docs
+        shell: pwsh
+        run: |
+          Import-Module ./ActionableMessages.psd1 -Force
+          $docsPath = "./docs-site/reference"
+
+          # Ensure directory exists
+          if (-not (Test-Path $docsPath)) {
+            New-Item -ItemType Directory -Path $docsPath -Force
+          }
+
+          # Generate reference docs
+          New-MarkdownHelp -Module ActionableMessages -OutputFolder $docsPath -Force
+
+          # Create index file
+          @"
+          # ActionableMessages PowerShell Module
+
+          This is the reference documentation for the ActionableMessages PowerShell module.
+
+          ## Available Commands
+
+          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [$($_.Name)]($($_.Name).md)" } | Sort-Object)
+          "@ | Out-File -FilePath "$docsPath/index.md" -Encoding utf8
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs-site
+          target-folder: docs  # Deploy to /docs path to avoid conflicts
+          clean: true
