@@ -9,6 +9,9 @@ on:
     paths-ignore:
       - 'CHANGELOG.md'  # Prevent recursive triggers when the changelog itself is updated
 
+permissions:
+  contents: write  # This gives write access to repository contents
+
 jobs:
   update-changelog:
     runs-on: windows-latest
