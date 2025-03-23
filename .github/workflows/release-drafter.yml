@@ -1,6 +1,10 @@
 name: Draft Release
 
 on:
+  pull_request:
+    branches: [ main, master, development ]
+  push:
+    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       versionBump:
@@ -80,6 +84,7 @@ jobs:
         with:
           tag: v${{ steps.version.outputs.new_version }}
           message: "Release v${{ steps.version.outputs.new_version }}"
+          force_push_tag: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
