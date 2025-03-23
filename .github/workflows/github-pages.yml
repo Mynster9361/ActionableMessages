@@ -54,13 +54,48 @@ jobs:
           New-Item -ItemType Directory -Path $cmdDocsPath -Force
           New-MarkdownHelp -Module ActionableMessages -OutputFolder $cmdDocsPath -Force
 
-          # Create index page with Jekyll front matter
+          # Add front matter to command pages
+          $cmdFiles = Get-ChildItem -Path "$cmdDocsPath" -Filter "*.md"
+          foreach($file in $cmdFiles) {
+            $content = Get-Content -Path $file.FullName -Raw
+            $cmdName = $file.BaseName
+
+            $frontMatter = @"
+            ---
+            layout: page
+            title: $cmdName
+            permalink: /modules/actionablemessages/commands/$cmdName/
+            ---
+
+            "@
+
+            $newContent = $frontMatter + $content
+            Set-Content -Path $file.FullName -Value $newContent
+          }
+
+          # Create commands index page
+          $commandsIndexPath = "$cmdDocsPath/index.md"
+          @"
+          ---
+          layout: page
+          title: ActionableMessages Commands
+          permalink: /modules/actionablemessages/commands/
+          ---
+
+          # ActionableMessages Commands
+
+          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``]($($_.Name)/)" } | Sort-Object)
+          "@ | Out-File -FilePath $commandsIndexPath -Encoding utf8
+
+          # Create main index page with Jekyll front matter
           @"
           ---
           layout: page
           title: ActionableMessages PowerShell Module
           permalink: /modules/actionablemessages/
           ---
+
+          # ActionableMessages PowerShell Module
 
           A PowerShell module for creating Microsoft Actionable Messages.
 
@@ -80,7 +115,7 @@ jobs:
 
           ## Command Reference
 
-          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name).html)" } | Sort-Object)
+          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name)/)" } | Sort-Object)
           "@ | Out-File -FilePath "$targetDir/index.md" -Encoding utf8
 
       - name: Commit documentation to GitHub Pages repo
