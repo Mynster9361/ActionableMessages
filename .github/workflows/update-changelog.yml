@@ -78,7 +78,7 @@ jobs:
             } else {
               $version = "0.1.0"
             }
-            New-Changelog -Path $changelogPath -Version $version -ReleaseStatus "Unreleased"
+            New-Changelog -Path $changelogPath -ReleaseStatus "Unreleased"
           }
 
           # Add entry to changelog
