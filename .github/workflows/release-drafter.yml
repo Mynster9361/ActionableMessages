@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   release:
-    name: Draft Release v${{ github.event.inputs.versionBump }}
+    name: Draft Release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
