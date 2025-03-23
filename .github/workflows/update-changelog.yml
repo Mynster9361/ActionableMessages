@@ -71,14 +71,18 @@ jobs:
           # Create changelog if it doesn't exist
           if (-not (Test-Path -Path $changelogPath)) {
             Write-Host "Creating new CHANGELOG.md file..."
+            # Create with default parameters only
+            New-Changelog -Path $changelogPath
+
+            # Get version number for post-creation processing
             $manifestPath = "ActionableMessages.psd1"
             if (Test-Path $manifestPath) {
               $moduleData = Import-PowerShellDataFile -Path $manifestPath
               $version = $moduleData.ModuleVersion
-            } else {
-              $version = "0.1.0"
+
+              # After creating, we could update with version info using other commands
+              # This isn't necessary as the changelog already has the [Unreleased] section
             }
-            New-Changelog -Path $changelogPath -ReleaseStatus "Unreleased"
           }
 
           # Add entry to changelog
