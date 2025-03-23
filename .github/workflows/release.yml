@@ -1,0 +1,125 @@
+name: Publish to PowerShell Gallery
+
+on:
+  release:
+    types: [published]  # Only trigger when a release is published (not drafted)
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to PowerShell Gallery
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}  # Check out the tagged release
+
+      - name: Get Version Information
+        id: version
+        shell: pwsh
+        run: |
+          # Extract version from tag (remove 'v' prefix if present)
+          $Version = "${{ github.event.release.tag_name }}" -replace '^v', ''
+          Write-Host "Release version: $Version"
+          echo "version=$Version" >> $env:GITHUB_OUTPUT
+
+          # Verify the manifest version matches the release tag
+          $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
+          $ModuleInfo = Import-PowerShellDataFile $ManifestPath
+          $ManifestVersion = $ModuleInfo.ModuleVersion
+
+          if ($Version -ne $ManifestVersion) {
+            Write-Warning "Module manifest version ($ManifestVersion) does not match release tag ($Version)"
+            Write-Warning "Updating manifest version to match release tag"
+
+            Update-ModuleManifest -Path $ManifestPath -ModuleVersion $Version
+          }
+
+      - name: Run Tests
+        shell: pwsh
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck
+          $TestResults = Invoke-Pester -Path "./Tests" -PassThru
+
+          if ($TestResults.FailedCount -gt 0) {
+            Write-Error "Tests failed! Cannot publish module."
+            exit 1
+          }
+
+          Write-Host "All tests passed. Ready to publish."
+
+      - name: Publish to PowerShell Gallery
+        shell: pwsh
+        run: |
+            # Extract release notes from CHANGELOG.md based on version
+            $Version = "${{ steps.version.outputs.version }}"
+            $ChangelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
+
+            $ReleaseNotes = ""
+            if (Test-Path $ChangelogPath) {
+                $Content = Get-Content -Path $ChangelogPath -Raw
+
+                # Look for the specific version section
+                $VersionHeader = "## [$Version]"
+                $NextVersionPattern = "## \["
+
+                $StartIndex = $Content.IndexOf($VersionHeader)
+
+                if ($StartIndex -ge 0) {
+                $StartIndex = $StartIndex + $VersionHeader.Length
+                $EndIndex = $Content.IndexOf($NextVersionPattern, $StartIndex)
+
+                if ($EndIndex -ge 0) {
+                    $ReleaseNotes = $Content.Substring($StartIndex, $EndIndex - $StartIndex).Trim()
+                } else {
+                    # This is the last/only version in the changelog
+                    $ReleaseNotes = $Content.Substring($StartIndex).Trim()
+                }
+
+                Write-Host "Found release notes for version $Version in CHANGELOG.md"
+                } else {
+                Write-Host "No specific section found for version $Version in changelog"
+                $ReleaseNotes = "Release version $Version"
+                }
+            } else {
+                Write-Host "CHANGELOG.md not found"
+                $ReleaseNotes = "Release version $Version"
+            }
+
+            # Add a link to the GitHub release
+            $ReleaseNotes += @"
+
+            View the full release on GitHub: ${{ github.event.release.html_url }}
+            "@
+
+            try {
+                # Publish the module
+                Write-Host "Publishing module version $Version to PowerShell Gallery..."
+
+                Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose -ErrorAction Stop
+
+                Write-Host "✅ Module successfully published to PowerShell Gallery!"
+            }
+            catch {
+                Write-Error "Failed to publish module: $_"
+                exit 1
+            }
+
+      - name: Add Release Comment
+        if: success()
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.release.id }}
+          body: |
+            ## ✅ Published to PowerShell Gallery
+
+            Module version ${{ steps.version.outputs.version }} has been successfully published to the PowerShell Gallery.
+
+            You can install it with:
+            ```powershell
+            Install-Module ActionableMessages -Scope CurrentUser
+            ```
+
+            [View on PowerShell Gallery](https://www.powershellgallery.com/packages/ActionableMessages/${{ steps.version.outputs.version }})

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Your unreleased changes go here
+- Changelogmanagement module
+
+### Changed
+- Release Drafter
+
+### Fixed
+- Github Workflows
 
 ## [1.0.1] - 2025-03-19
 
