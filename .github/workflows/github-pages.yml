@@ -1,4 +1,4 @@
-name: Deploy Documentation
+name: Build Module Documentation
 
 on:
   push:
@@ -6,20 +6,27 @@ on:
     paths:
       - 'Public/**'
       - 'docs/**'
-      - 'docs-site/**'
       - '.github/workflows/github-pages.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   build-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout ActionableMessages repository
+        uses: actions/checkout@v3
+        with:
+          path: actionable-messages
+
+      - name: Checkout GitHub Pages repository
+        uses: actions/checkout@v3
+        with:
+          repository: Mynster9361/mynster9361.github.io
+          token: ${{ secrets.GH_PAGES_TOKEN }}
+          path: github-pages
 
       - name: Setup PowerShell
         uses: actions/setup-dotnet@v3
@@ -35,42 +42,25 @@ jobs:
       - name: Generate docs
         shell: pwsh
         run: |
-          Import-Module ./ActionableMessages.psd1 -Force
-          $docsPath = "./docs-site/reference"
+          # Import module from ActionableMessages repo
+          Import-Module ./actionable-messages/ActionableMessages.psd1 -Force
 
-          # Ensure directory exists
-          if (-not (Test-Path $docsPath)) {
-            New-Item -ItemType Directory -Path $docsPath -Force
-          }
+          # Create module collection directory in GitHub Pages repo
+          $targetDir = "./github-pages/_powershell_modules/actionablemessages"
+          New-Item -ItemType Directory -Path $targetDir -Force
 
-          # Ensure parent directory exists for landing page
-          $siteRoot = "./docs-site"
-          if (-not (Test-Path $siteRoot)) {
-            New-Item -ItemType Directory -Path $siteRoot -Force
-          }
+          # Generate command docs
+          $cmdDocsPath = "$targetDir/commands"
+          New-Item -ItemType Directory -Path $cmdDocsPath -Force
+          New-MarkdownHelp -Module ActionableMessages -OutputFolder $cmdDocsPath -Force
 
-          # Generate reference docs
-          New-MarkdownHelp -Module ActionableMessages -OutputFolder $docsPath -Force
-
-          # Create reference index file
-          @"
-          # ActionableMessages PowerShell Module
-
-          This is the reference documentation for the ActionableMessages PowerShell module.
-
-          ## Available Commands
-
-          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [$($_.Name)]($($_.Name).md)" } | Sort-Object)
-          "@ | Out-File -FilePath "$docsPath/index.md" -Encoding utf8
-
-          # Create main landing page
+          # Create index page with Jekyll front matter
           @"
           ---
-          layout: default
-          title: ActionableMessages
+          layout: page
+          title: ActionableMessages PowerShell Module
+          permalink: /modules/actionablemessages/
           ---
-
-          # ActionableMessages PowerShell Module
 
           A PowerShell module for creating Microsoft Actionable Messages.
 
@@ -88,28 +78,16 @@ jobs:
           $jsonCard = Export-AMCard -Card $card
           ```
 
-          ## Documentation
+          ## Command Reference
 
-          * [Command Reference](reference/index.md)
-          * [GitHub Repository](https://github.com/Mynster9361/ActionableMessages)
-          "@ | Out-File -FilePath "$siteRoot/index.md" -Encoding utf8
+          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name).html)" } | Sort-Object)
+          "@ | Out-File -FilePath "$targetDir/index.md" -Encoding utf8
 
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: docs-site
-          target-folder: /  # Deploy to /docs path to avoid conflicts
-          clean: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create .nojekyll file
-        shell: pwsh
+      - name: Commit documentation to GitHub Pages repo
         run: |
-          New-Item -Path "./docs-site/.nojekyll" -ItemType File -Force
-
-      - name: List generated files
-        shell: pwsh
-        run: |
-          Write-Host "Files in docs-site:"
-          Get-ChildItem -Path ./docs-site -Recurse | Select-Object FullName
+          cd github-pages
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ./_powershell_modules
+          git commit -m "Update ActionableMessages module documentation" || echo "No changes to commit"
+          git push
