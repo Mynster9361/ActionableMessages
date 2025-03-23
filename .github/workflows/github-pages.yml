@@ -61,13 +61,13 @@ jobs:
             $cmdName = $file.BaseName
 
             $frontMatter = @"
-            ---
-            layout: page
-            title: $cmdName
-            permalink: /modules/actionablemessages/commands/$cmdName/
-            ---
+---
+layout: page
+title: $cmdName
+permalink: /modules/actionablemessages/commands/$cmdName/
+---
 
-            "@
+"@
 
             $newContent = $frontMatter + $content
             Set-Content -Path $file.FullName -Value $newContent
@@ -76,47 +76,47 @@ jobs:
           # Create commands index page
           $commandsIndexPath = "$cmdDocsPath/index.md"
           @"
-          ---
-          layout: page
-          title: ActionableMessages Commands
-          permalink: /modules/actionablemessages/commands/
-          ---
+---
+layout: page
+title: ActionableMessages Commands
+permalink: /modules/actionablemessages/commands/
+---
 
-          # ActionableMessages Commands
+# ActionableMessages Commands
 
-          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``]($($_.Name)/)" } | Sort-Object)
-          "@ | Out-File -FilePath $commandsIndexPath -Encoding utf8
+$(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``]($($_.Name)/)" } | Sort-Object)
+"@ | Out-File -FilePath $commandsIndexPath -Encoding utf8
 
           # Create main index page with Jekyll front matter
           @"
-          ---
-          layout: page
-          title: ActionableMessages PowerShell Module
-          permalink: /modules/actionablemessages/
-          ---
+---
+layout: page
+title: ActionableMessages PowerShell Module
+permalink: /modules/actionablemessages/
+---
 
-          # ActionableMessages PowerShell Module
+# ActionableMessages PowerShell Module
 
-          A PowerShell module for creating Microsoft Actionable Messages.
+A PowerShell module for creating Microsoft Actionable Messages.
 
-          ## Installation
+## Installation
 
-          ```powershell
-          Install-Module -Name ActionableMessages -Scope CurrentUser
-          ```
+```powershell
+Install-Module -Name ActionableMessages -Scope CurrentUser
+```
 
-          ## Quick Start
+## Quick Start
 
-          ```powershell
-          $card = New-AMCard -ThemeColor "#0078D7"
-          Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
-          $jsonCard = Export-AMCard -Card $card
-          ```
+```powershell
+$card = New-AMCard -ThemeColor "#0078D7"
+Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
+$jsonCard = Export-AMCard -Card $card
+```
 
-          ## Command Reference
+## Command Reference
 
-          $(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name)/)" } | Sort-Object)
-          "@ | Out-File -FilePath "$targetDir/index.md" -Encoding utf8
+$(Get-Command -Module ActionableMessages | ForEach-Object { "- [``$($_.Name)``](commands/$($_.Name)/)" } | Sort-Object)
+"@ | Out-File -FilePath "$targetDir/index.md" -Encoding utf8
 
       - name: Commit documentation to GitHub Pages repo
         run: |
