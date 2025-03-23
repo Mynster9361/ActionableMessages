@@ -1,11 +1,10 @@
 title: ActionableMessages
-description: PowerShell module for creating Actionable Messages with card elements
-baseurl: "/ActionableMessages/docs"  # This matches your target-folder in the workflow
-url: "https://Mynster9361.github.io"  # Replace with your actual GitHub username
+description: PowerShell module for creating Actionable Messages
+baseurl: "/ActionableMessages/docs"
+url: "https://mynster9361.github.io"
 theme: jekyll-theme-minimal
 
-defaults:
-  - scope:
-      path: ""
-    values:
-      layout: default
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge

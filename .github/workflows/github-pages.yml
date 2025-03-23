@@ -7,8 +7,13 @@ on:
       - 'Public/**'
       - 'docs/**'
       - 'docs-site/**'
-      - '.github/workflows/docs-deploy.yml'
+      - '.github/workflows/github-pages.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-docs:
@@ -52,9 +57,13 @@ jobs:
           $(Get-Command -Module ActionableMessages | ForEach-Object { "- [$($_.Name)]($($_.Name).md)" } | Sort-Object)
           "@ | Out-File -FilePath "$docsPath/index.md" -Encoding utf8
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs-site
           target-folder: docs  # Deploy to /docs path to avoid conflicts
           clean: true
+          token: ${{ secrets.GITHUB_TOKEN }}  # Add this line for authentication
