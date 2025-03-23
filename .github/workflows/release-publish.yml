@@ -17,11 +17,14 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # This ensures we have full history for the changelog
 
-      - name: Install PowerShellGet
+      - name: Install PowerShellGet and Required Modules
         shell: pwsh
         run: |
           Install-Module -Name PowerShellGet -Force -SkipPublisherCheck -Scope CurrentUser
+          Install-Module -Name ChangelogManagement -Force -SkipPublisherCheck -Scope CurrentUser
 
       - name: Update Module Version
         id: version
@@ -47,6 +50,40 @@ jobs:
           "Updated version from $CurrentVersion to $NewVersion"
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Update Changelog
+        shell: pwsh
+        run: |
+          Import-Module ChangelogManagement
+          $ChangelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
+
+          # Create changelog if it doesn't exist
+          if (-not (Test-Path -Path $ChangelogPath)) {
+            Write-Host "Creating new CHANGELOG.md file..."
+            New-Changelog -Path $ChangelogPath -Version "${{ steps.version.outputs.new_version }}" -ReleaseStatus "Unreleased"
+
+            # Add initial entry if this is a brand new changelog
+            $ReleaseNotes = "${{ github.event.inputs.releaseNotes }}"
+            if ($ReleaseNotes) {
+              Add-ChangelogData -Path $ChangelogPath -Type "Added" -Data $ReleaseNotes
+            } else {
+              Add-ChangelogData -Path $ChangelogPath -Type "Added" -Data "Initial release of ActionableMessages module"
+            }
+          }
+
+          # Update the changelog to mark this version as released
+          Update-Changelog -Path $ChangelogPath -ReleaseVersion "${{ steps.version.outputs.new_version }}"
+
+          # Display the updated changelog
+          Get-Content -Path $ChangelogPath
+
+          # Commit the changes
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git add ActionableMessages.psd1
+          git commit -m "chore: release version ${{ steps.version.outputs.new_version }}"
+          git push
+
       - name: Build and Test Module
         shell: pwsh
         run: |
@@ -68,3 +105,14 @@ jobs:
 
           # Publish the module
           Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: Release v${{ steps.version.outputs.new_version }}
+          body_path: CHANGELOG.md  # Use the changelog as the release description
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

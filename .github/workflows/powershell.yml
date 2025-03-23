@@ -1,6 +1,13 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
+# This GitHub Actions workflow uses PSScriptAnalyzer to analyze PowerShell scripts in the repository.
+# PSScriptAnalyzer is a static code checker for PowerShell modules and scripts.
+# For more information on PSScriptAnalyzer, visit:
+# https://github.com/microsoft/action-psscriptanalyzer
+# For more information on PSScriptAnalyzer in general, see:
+# https://github.com/PowerShell/PSScriptAnalyzer
+#
+# The workflow can triggered manually via the workflow_dispatch event. But runs automatically on pull request and pushes to master.
+# It checks out the repository code, runs PSScriptAnalyzer with specified rules,
+# and uploads the results in SARIF format for further analysis.
 # documentation.
 #
 # https://github.com/microsoft/action-psscriptanalyzer
@@ -11,11 +18,10 @@ name: PSScriptAnalyzer
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '26 8 * * 6'
+    branches: [ "master" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -39,7 +45,7 @@ jobs:
           path: .\
           recurse: true
           # Include your own basic security rules. Removing this option will run all the rules
-          includeRule: '"PSAvoidGlobalAliases", "PSAvoidUsingConvertToSecureStringWithPlainText"'
+          #includeRule: '"PSAvoidGlobalAliases", "PSAvoidUsingConvertToSecureStringWithPlainText"'
           output: results.sarif
 
       # Upload the SARIF file generated in the previous step

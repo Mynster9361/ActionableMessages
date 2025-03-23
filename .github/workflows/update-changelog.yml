@@ -1,0 +1,100 @@
+name: Update Changelog
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - development
+    paths-ignore:
+      - 'CHANGELOG.md'  # Prevent recursive triggers when the changelog itself is updated
+
+jobs:
+  update-changelog:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for better commit analysis
+
+      - name: Get commit information
+        id: commit_info
+        shell: pwsh
+        run: |
+          $commit_message = git log -1 --pretty=format:%s
+          Write-Host "Commit message: $commit_message"
+
+          # Extract type and description based on conventional commit format
+          if ($commit_message -match '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.*\))?:\s*(.+)$') {
+            $type = $matches[1]
+            $scope = if ($matches[2]) { $matches[2].Trim('()') } else { "" }
+            $description = $matches[3]
+
+            # Map commit type to changelog type
+            $changelog_type = switch ($type) {
+              "feat" { "Added" }
+              "fix" { "Fixed" }
+              "docs" { "Documentation" }
+              "perf" { "Performance" }
+              "refactor" { "Changed" }
+              "revert" { "Removed" }
+              "deprecate" { "Deprecated" }
+              "security" { "Security" }
+              default { "Changed" }
+            }
+
+            Write-Host "Changelog type: $changelog_type"
+            Write-Host "Description: $description"
+
+            echo "type=$changelog_type" >> $env:GITHUB_OUTPUT
+            echo "description=$description" >> $env:GITHUB_OUTPUT
+            echo "should_update=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Not a conventional commit format, skipping changelog update"
+            echo "should_update=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Install ChangelogManagement
+        if: steps.commit_info.outputs.should_update == 'true'
+        shell: pwsh
+        run: |
+          Install-Module -Name ChangelogManagement -Force -SkipPublisherCheck
+
+      - name: Update Changelog
+        if: steps.commit_info.outputs.should_update == 'true'
+        shell: pwsh
+        run: |
+          Import-Module ChangelogManagement
+
+          $changelogPath = "CHANGELOG.md"
+
+          # Create changelog if it doesn't exist
+          if (-not (Test-Path -Path $changelogPath)) {
+            Write-Host "Creating new CHANGELOG.md file..."
+            $manifestPath = "ActionableMessages.psd1"
+            if (Test-Path $manifestPath) {
+              $moduleData = Import-PowerShellDataFile -Path $manifestPath
+              $version = $moduleData.ModuleVersion
+            } else {
+              $version = "0.1.0"
+            }
+            New-Changelog -Path $changelogPath -Version $version -ReleaseStatus "Unreleased"
+          }
+
+          # Add entry to changelog
+          $changelogType = "${{ steps.commit_info.outputs.type }}"
+          $description = "${{ steps.commit_info.outputs.description }}"
+
+          Add-ChangelogData -Path $changelogPath -Type $changelogType -Data $description
+
+          # Display update
+          Write-Host "Added '$description' to the changelog under '$changelogType'"
+
+      - name: Commit updated changelog
+        if: steps.commit_info.outputs.should_update == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push
