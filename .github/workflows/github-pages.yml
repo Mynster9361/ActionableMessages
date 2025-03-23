@@ -43,10 +43,16 @@ jobs:
             New-Item -ItemType Directory -Path $docsPath -Force
           }
 
+          # Ensure parent directory exists for landing page
+          $siteRoot = "./docs-site"
+          if (-not (Test-Path $siteRoot)) {
+            New-Item -ItemType Directory -Path $siteRoot -Force
+          }
+
           # Generate reference docs
           New-MarkdownHelp -Module ActionableMessages -OutputFolder $docsPath -Force
 
-          # Create index file
+          # Create reference index file
           @"
           # ActionableMessages PowerShell Module
 
@@ -57,8 +63,37 @@ jobs:
           $(Get-Command -Module ActionableMessages | ForEach-Object { "- [$($_.Name)]($($_.Name).md)" } | Sort-Object)
           "@ | Out-File -FilePath "$docsPath/index.md" -Encoding utf8
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
+          # Create main landing page
+          @"
+          ---
+          layout: default
+          title: ActionableMessages
+          ---
+
+          # ActionableMessages PowerShell Module
+
+          A PowerShell module for creating Microsoft Actionable Messages.
+
+          ## Installation
+
+          ```powershell
+          Install-Module -Name ActionableMessages -Scope CurrentUser
+          ```
+
+          ## Quick Start
+
+          ```powershell
+          $card = New-AMCard -ThemeColor "#0078D7"
+          Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
+          $jsonCard = Export-AMCard -Card $card
+          ```
+
+          ## Documentation
+
+          * [Command Reference](reference/index.md)
+          * [GitHub Repository](https://github.com/Mynster9361/ActionableMessages)
+          "@ | Out-File -FilePath "$siteRoot/index.md" -Encoding utf8
+
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -66,4 +101,4 @@ jobs:
           folder: docs-site
           target-folder: docs  # Deploy to /docs path to avoid conflicts
           clean: true
-          token: ${{ secrets.GITHUB_TOKEN }}  # Add this line for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
