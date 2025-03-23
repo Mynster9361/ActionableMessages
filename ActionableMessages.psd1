@@ -2,7 +2,7 @@
 
 @{
     # PowerShell module manifest for ActionableMessages
-    ModuleVersion = '1.0.2'
+    ModuleVersion = '1.0.1'
     GUID = 'd1e5c3f4-5e3b-4c2a-8c3b-5e3b4c2a8c3b'
     Author = 'Morten Mynster'
     CompanyName = 'Mynster'
