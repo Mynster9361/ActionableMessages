@@ -65,15 +65,15 @@ jobs:
           $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
           $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
 
-          # Create a temp directory for the module files
-          $TempDir = Join-Path -Path $env:TEMP -ChildPath "ActionableMessages"
+          # Create a temp directory for the module files - using Linux-compatible path
+          $TempDir = Join-Path -Path "/tmp" -ChildPath "ActionableMessages"
           New-Item -Path $TempDir -ItemType Directory -Force
 
           # Copy module files to temp directory
-          Copy-Item -Path "$env:GITHUB_WORKSPACE\*" -Destination $TempDir -Recurse -Exclude @(".git", ".github")
+          Copy-Item -Path "$env:GITHUB_WORKSPACE/*" -Destination $TempDir -Recurse -Exclude @(".git", ".github")
 
           # Create zip file
-          Compress-Archive -Path "$TempDir\*" -DestinationPath $ZipFilePath -Force
+          Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
 
       - name: Create Tag
         uses: rickstaa/action-create-tag@v1
