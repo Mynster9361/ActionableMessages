@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   release:
-    name: Release to PowerShell Gallery
+    name: Draft Release v${{ github.event.inputs.versionBump }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
