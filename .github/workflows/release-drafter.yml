@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
   workflow_dispatch:
 
 permissions:
@@ -50,7 +48,7 @@ jobs:
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
-      # Update CHANGELOG.md file
+      # Update CHANGELOG.md file with Keep a Changelog format
       - name: Update Changelog
         id: changelog
         shell: pwsh
@@ -63,13 +61,77 @@ jobs:
           $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
           $today = Get-Date -Format "yyyy-MM-dd"
 
-          # Create or update changelog
+          # Create changelog header if it doesn't exist
+          $header = @"
+          # Changelog
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          "@
+
+          # Format the current release notes
+          $releaseNotes = @"
+
+          ## [$version] - $today
+
+          $releaseBody
+          "@
+
+          # Replace any title line if present (usually comes from release-drafter template)
+          $releaseNotes = $releaseNotes -replace "## Changes", ""
+
           if (Test-Path $changelogPath) {
             $existingContent = Get-Content -Path $changelogPath -Raw
-            $newContent = "# Changelog`n`n## [v$version] - $today`n`n$releaseBody`n`n$existingContent"
-            $newContent = $newContent -replace "# Changelog`n`n# Changelog", "# Changelog"
+
+            # Check if the header already exists in the file
+            if ($existingContent -match "The format is based on \[Keep a Changelog\]") {
+              # Header exists, just add new release notes after the header
+              $headerEndIndex = $existingContent.IndexOf("## [")
+              if ($headerEndIndex -gt 0) {
+                $newContent = $existingContent.Substring(0, $headerEndIndex) + $releaseNotes + $existingContent.Substring($headerEndIndex)
+              } else {
+                # No existing versions yet
+                $newContent = $existingContent + $releaseNotes
+              }
+            } else {
+              # No proper header, add it along with the new release
+              $newContent = $header + $releaseNotes + "`n`n" + $existingContent
+            }
           } else {
-            $newContent = "# Changelog`n`n## [v$version] - $today`n`n$releaseBody"
+            # Create new file with header and release
+            $newContent = $header + $releaseNotes
+          }
+
+          # Update version links at the bottom
+          if ($newContent -notmatch '\[Unreleased\]:') {
+            # Add version links if they don't exist
+            $repoUrl = "https://github.com/${{ github.repository }}"
+            $versionLinks = @"
+
+          [Unreleased]: $repoUrl/compare/$version...HEAD
+          [$version]: $repoUrl/releases/tag/v$version
+          "@
+            $newContent += $versionLinks
+          } else {
+            # Update existing version links
+            $currentUnreleasedLink = [regex]::Match($newContent, '\[Unreleased\]:(.*?)\n').Groups[1].Value.Trim()
+            $previousVersionMatch = [regex]::Match($currentUnreleasedLink, 'compare/(v?.*?)\.\.\.HEAD')
+
+            if ($previousVersionMatch.Success) {
+              $previousVersion = $previousVersionMatch.Groups[1].Value
+
+              # Replace Unreleased link
+              $newContent = $newContent -replace '\[Unreleased\]:(.*?)\n', "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n"
+
+              # Add new version link if not already there
+              if ($newContent -notmatch "\[$version\]:") {
+                $versionLinkPattern = '\[Unreleased\]:(.*?)\n'
+                $versionLink = "[$version]: https://github.com/${{ github.repository }}/compare/$previousVersion...v$version`n"
+                $newContent = [regex]::Replace($newContent, $versionLinkPattern, "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n$versionLink")
+              }
+            }
           }
 
           Set-Content -Path $changelogPath -Value $newContent

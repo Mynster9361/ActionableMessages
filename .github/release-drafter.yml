@@ -5,23 +5,15 @@ categories:
     labels:
       - 'breaking-change'
   - title: '🚀 Features'
-    labels:
-      - 'enhancement'
-      - 'feature'
+    label: 'feature'
   - title: '🐛 Bug Fixes'
-    labels:
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
+    label: 'fix'
   - title: '🧰 Maintenance'
-    labels:
-      - 'chore'
-      - 'maintenance'
+    label: 'chore'
   - title: '📚 Documentation'
-    labels:
-      - 'documentation'
+    label: 'documentation'
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
-change-title-escapes: '\<*_&'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 version-resolver:
   major:
     labels:
