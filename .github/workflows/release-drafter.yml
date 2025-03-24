@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  pull_request:  # Changed from pull_request_target
+  pull_request:  # Correct syntax for pull request
     types: [opened, reopened, synchronize, edited]
   workflow_dispatch:
     inputs:
@@ -84,8 +84,8 @@ jobs:
             # Format for GitHub API query (needs ISO format with time)
             $dateIso = [DateTime]::Parse($lastReleaseDate).ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-            # Get commits since date
-            $commits = gh api repos/${{ github.repository }}/commits --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}" --since "$dateIso"
+            # Get commits since date - FIX: Add since as query parameter
+            $commits = gh api "repos/${{ github.repository }}/commits?since=$dateIso" --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}"
 
             # Process and categorize commits
             $addedItems = @()
@@ -155,14 +155,14 @@ jobs:
           name: v${{ steps.release-drafter-info.outputs.resolved_version }}
           tag: v${{ steps.release-drafter-info.outputs.resolved_version }}
           version: v${{ steps.release-drafter-info.outputs.resolved_version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CHANGES: |
+          template: |
             ## [v${{ steps.release-drafter-info.outputs.resolved_version }}] - [${{ steps.extract-date.outputs.last_release_date }}]
 
             ${{ steps.custom-changes.outputs.changes }}
 
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-drafter-info.outputs.previous_tag }}...v${{ steps.release-drafter-info.outputs.resolved_version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-release:
     needs: update-draft
@@ -174,7 +174,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Extract the last release date from CHANGELOG.md
+      # Extract the last RELEASED version date from CHANGELOG.md - using the same logic as update-draft
       - name: Extract Last Release Date
         id: extract-date
         shell: pwsh
@@ -182,13 +182,28 @@ jobs:
           $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
           if (Test-Path $changelogPath) {
             $content = Get-Content -Path $changelogPath -Raw
-            $match = [regex]::Match($content, '## \[[0-9.]+\] - \[([0-9]{4}-[0-9]{2}-[0-9]{2})\]')
-            if ($match.Success) {
-              $lastReleaseDate = $match.Groups[1].Value
-              echo "last_release_date=$lastReleaseDate" >> $env:GITHUB_OUTPUT
-              echo "Found last release date: $lastReleaseDate"
+
+            # Get all version sections with dates
+            $versionEntries = [regex]::Matches($content, '## \[([0-9.]+)\] - \[([0-9]{4}-[0-9]{2}-[0-9]{2})\]')
+
+            if ($versionEntries.Count -ge 2) {
+              # Get the second entry (index 1) which is the previous version
+              $previousVersionNumber = $versionEntries[1].Groups[1].Value
+              $previousReleaseDate = $versionEntries[1].Groups[2].Value
+
+              echo "last_release_date=$previousReleaseDate" >> $env:GITHUB_OUTPUT
+              echo "last_release_version=$previousVersionNumber" >> $env:GITHUB_OUTPUT
+              echo "Found last release: v$previousVersionNumber from $previousReleaseDate"
+            } elseif ($versionEntries.Count -eq 1) {
+              # Only one version exists, use its date
+              $previousVersionNumber = $versionEntries[0].Groups[1].Value
+              $previousReleaseDate = $versionEntries[0].Groups[2].Value
+
+              echo "last_release_date=$previousReleaseDate" >> $env:GITHUB_OUTPUT
+              echo "last_release_version=$previousVersionNumber" >> $env:GITHUB_OUTPUT
+              echo "Found only one release: v$previousVersionNumber from $previousReleaseDate"
             } else {
-              echo "No release date found in CHANGELOG.md"
+              echo "No version entries found in CHANGELOG.md"
             }
           } else {
             echo "CHANGELOG.md not found"
@@ -204,7 +219,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Custom step to fetch commits since the last release date
+      # Custom step to fetch commits since the last release date - fixed query parameter
       - name: Generate Commits Since Last Date
         id: custom-changes
         shell: pwsh
@@ -216,8 +231,8 @@ jobs:
             # Format for GitHub API query (needs ISO format with time)
             $dateIso = [DateTime]::Parse($lastReleaseDate).ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-            # Get commits since date
-            $commits = gh api repos/${{ github.repository }}/commits --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}" --since "$dateIso"
+            # Get commits since date - FIX: Add since as query parameter
+            $commits = gh api "repos/${{ github.repository }}/commits?since=$dateIso" --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}"
 
             # Process and categorize commits
             $addedItems = @()
