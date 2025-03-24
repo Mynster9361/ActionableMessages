@@ -27,7 +27,7 @@ categories:
     labels:
       - 'security'
 
-# Include commits as well as PRs (helpful if you don't always use PRs)
+# Include commits as well as PRs
 include-commits: true
 commit-template: '- $TITLE'
 
@@ -54,18 +54,11 @@ version-resolver:
       - 'bug'
   default: patch
 
-# The actual template for the release notes
+# The actual template for the release notes - notice the double brackets around the date
 template: |
-  ## [$RESOLVED_VERSION] - $RELEASE_DATE
+  ## [$RESOLVED_VERSION] - [$RELEASE_DATE]
 
   $CHANGES
 
-  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
-
 # Set the release date format to match your CHANGELOG.md
 date-format: 'YYYY-MM-DD'
-
-# Auto-replace unreleased heading in CHANGELOG.md
-replacers:
-  - search: '/## Unreleased/g'
-    replace: '## [v$RESOLVED_VERSION] - $RELEASE_DATE'
