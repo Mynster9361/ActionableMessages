@@ -5,10 +5,8 @@ on:
     branches:
       - main
   pull_request:
-    # Only following types are handled by the action, but one can default to all as well
     types: [opened, reopened, synchronize]
   workflow_dispatch:
-
 
 permissions:
   contents: write
@@ -18,7 +16,9 @@ jobs:
   update-release-draft:
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v6
+      - name: Draft Release
+        id: release-drafter
+        uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
         env:
@@ -48,6 +48,34 @@ jobs:
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
+      # Update CHANGELOG.md file
+      - name: Update Changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.new_version }}"
+          $releaseBody = @"
+          ${{ steps.release-drafter.outputs.body }}
+          "@
+
+          $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
+          $today = Get-Date -Format "yyyy-MM-dd"
+
+          # Create or update changelog
+          if (Test-Path $changelogPath) {
+            $existingContent = Get-Content -Path $changelogPath -Raw
+            $newContent = "# Changelog`n`n## [v$version] - $today`n`n$releaseBody`n`n$existingContent"
+            $newContent = $newContent -replace "# Changelog`n`n# Changelog", "# Changelog"
+          } else {
+            $newContent = "# Changelog`n`n## [v$version] - $today`n`n$releaseBody"
+          }
+
+          Set-Content -Path $changelogPath -Value $newContent
+
+          # Pass the release body to future steps
+          $releaseBody = $releaseBody -replace "`n", "%0A"
+          echo "release_body=$releaseBody" >> $env:GITHUB_OUTPUT
+
       # Create and package a .zip file for the release
       - name: Package Module
         shell: pwsh
@@ -66,3 +94,29 @@ jobs:
           # Create zip file
           Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
 
+      # Commit the updated CHANGELOG.md and Module Version
+      - name: Commit Changes
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md ActionableMessages.psd1
+          git commit -m "Update CHANGELOG.md and bump version to v${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
+          git push
+
+      # Upload the package as a release asset
+      - name: Update Draft Release
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          commitish: ${{ github.ref }}
+          name: v${{ steps.version.outputs.new_version }}
+          tag: v${{ steps.version.outputs.new_version }}
+          version: v${{ steps.version.outputs.new_version }}
+          publish: false
+          prerelease: false
+          files: |
+            ActionableMessages-${{ steps.version.outputs.new_version }}.zip
+            CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
