@@ -62,18 +62,107 @@ jobs:
             echo "CHANGELOG.md not found"
           }
 
-      # Run release-drafter with the date context
-      - name: Update Draft Release
-        id: release-drafter
+      # Get version information from release-drafter
+      - name: Get Version Info
+        id: release-drafter-info
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-releaser: false
+          disable-releaser: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # We can't directly pass the date to release-drafter but
-          # the date helps for informational purposes in logs
-          LAST_RELEASE_DATE: ${{ steps.extract-date.outputs.last_release_date }}
+
+      # Custom step to fetch commits since the last release date
+      - name: Generate Commits Since Last Date
+        id: custom-changes
+        shell: pwsh
+        run: |
+          $lastReleaseDate = "${{ steps.extract-date.outputs.last_release_date }}"
+          if (-not [string]::IsNullOrEmpty($lastReleaseDate)) {
+            echo "Fetching commits since $lastReleaseDate"
+
+            # Format for GitHub API query (needs ISO format with time)
+            $dateIso = [DateTime]::Parse($lastReleaseDate).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+            # Get commits since date
+            $commits = gh api repos/${{ github.repository }}/commits --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}" --since "$dateIso"
+
+            # Process and categorize commits
+            $addedItems = @()
+            $changedItems = @()
+            $fixedItems = @()
+            $otherItems = @()
+
+            $commits | ConvertFrom-Json | ForEach-Object {
+              $message = $_.message -split "`n" | Select-Object -First 1
+              $item = "- $message"
+
+              if ($message -match '^(feat|feature|add|added):') {
+                $addedItems += $item
+              } elseif ($message -match '^(change|changed|refactor):') {
+                $changedItems += $item
+              } elseif ($message -match '^(fix|fixed|bug):') {
+                $fixedItems += $item
+              } else {
+                $otherItems += $item
+              }
+            }
+
+            # Build the changes section
+            $changes = ""
+
+            if ($addedItems.Count -gt 0) {
+              $changes += "`n### Added`n" + ($addedItems -join "`n")
+            }
+
+            if ($changedItems.Count -gt 0) {
+              $changes += "`n### Changed`n" + ($changedItems -join "`n")
+            }
+
+            if ($fixedItems.Count -gt 0) {
+              $changes += "`n### Fixed`n" + ($fixedItems -join "`n")
+            }
+
+            if ($otherItems.Count -gt 0) {
+              $changes += "`n### Other`n" + ($otherItems -join "`n")
+            }
+
+            # If no categorized changes, use everything under "Other"
+            if ($changes -eq "") {
+              $allCommits = $commits | ConvertFrom-Json | ForEach-Object {
+                $message = $_.message -split "`n" | Select-Object -First 1
+                "- $message"
+              }
+              if ($allCommits.Count -gt 0) {
+                $changes = "`n### Other`n" + ($allCommits -join "`n")
+              }
+            }
+
+            echo "changes=$changes" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "No last release date found, using release-drafter's changes"
+            echo "changes=${{ steps.release-drafter-info.outputs.body }}" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Create/update the draft release using our custom content
+      - name: Update Draft Release
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          disable-autolabeler: true
+          name: v${{ steps.release-drafter-info.outputs.resolved_version }}
+          tag: v${{ steps.release-drafter-info.outputs.resolved_version }}
+          version: v${{ steps.release-drafter-info.outputs.resolved_version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGES: |
+            ## [v${{ steps.release-drafter-info.outputs.resolved_version }}] - [${{ steps.extract-date.outputs.last_release_date }}]
+
+            ${{ steps.custom-changes.outputs.changes }}
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-drafter-info.outputs.previous_tag }}...v${{ steps.release-drafter-info.outputs.resolved_version }}
 
   create-release:
     needs: update-draft
