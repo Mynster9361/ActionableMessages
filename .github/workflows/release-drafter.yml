@@ -1,28 +1,29 @@
 name: Draft Release
 
 on:
-  pull_request:
-    branches: [ main, master, development ]
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+  pull_request:
+    # Only following types are handled by the action, but one can default to all as well
+    types: [opened, reopened, synchronize]
   workflow_dispatch:
-    inputs:
-      versionBump:
-        description: 'Version bump type (major, minor, patch)'
-        required: true
-        default: 'patch'
-      releaseNotes:
-        description: 'Additional release notes'
-        required: false
+
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  release:
-    name: Draft Release
+  update-release-draft:
     runs-on: ubuntu-latest
     steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -35,44 +36,27 @@ jobs:
           $Manifest = Import-PowerShellDataFile $ManifestPath
           $CurrentVersion = [Version]$Manifest.ModuleVersion
 
-          $VersionBump = "${{ github.event.inputs.versionBump }}"
-
-          # Always bump the version even if not specified
-          if ([string]::IsNullOrEmpty($VersionBump) -or $VersionBump -eq "patch") {
-            $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1)
-          }
-          elseif ($VersionBump -eq "minor") {
-            $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0)
-          }
-          elseif ($VersionBump -eq "major") {
-            $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0)
-          }
-          else {
-            # Default to patch bump if unrecognized input
+          # Get the version from release-drafter
+          $draftVersion = "${{ steps.release-drafter.outputs.resolved_version }}"
+          if (-not [string]::IsNullOrEmpty($draftVersion)) {
+            $NewVersion = $draftVersion.TrimStart('v')
+          } else {
+            # Fallback to patch bump
             $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1)
           }
 
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
-
-          Write-Host "Updated version from $CurrentVersion to $NewVersion"
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
-      - name: Update Changelog
-        id: changelog
-        uses: natescherer/changelog-management-action@v1
-        with:
-          mode: release
-          releaseVersion: ${{ steps.version.outputs.new_version }}
-
-      - name: Create Package Script
-        shell: bash
+      # Create and package a .zip file for the release
+      - name: Package Module
+        shell: pwsh
         run: |
-          cat > package.ps1 << 'EOF'
           $ModuleVersion = "${{ steps.version.outputs.new_version }}"
           $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
           $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
 
-          # Use PowerShell's cross-platform temp path method instead of $env:TEMP
+          # Create a temp directory
           $TempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "ActionableMessages"
           New-Item -Path $TempDir -ItemType Directory -Force
 
@@ -81,75 +65,4 @@ jobs:
 
           # Create zip file
           Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
-          EOF
 
-      - name: Run Tests
-        shell: pwsh
-        run: |
-          Install-Module Pester -Force -SkipPublisherCheck
-          Invoke-Pester -Path "./Tests" -PassThru
-
-      - name: Package Module
-        shell: pwsh
-        run: |
-          ./package.ps1
-
-      # Check if tag already exists and delete it if it does
-      - name: Check and Delete Existing Tag
-        shell: bash
-        run: |
-          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.version.outputs.new_version }}"; then
-            echo "Tag exists, deleting..."
-            git push origin :refs/tags/v${{ steps.version.outputs.new_version }}
-          fi
-
-      - name: Create Tag
-        uses: rickstaa/action-create-tag@v1
-        with:
-          tag: v${{ steps.version.outputs.new_version }}
-          message: "Release v${{ steps.version.outputs.new_version }}"
-          force_push_tag: false
-
-      - name: Prepare Release Notes
-        id: notes
-        shell: pwsh
-        run: |
-          $releaseNotes = @"
-          # ActionableMessages v${{ steps.version.outputs.new_version }}
-
-          ## Changes
-          ${{ steps.changelog.outputs.releasenotes }}
-
-          ${{ github.event.inputs.releaseNotes }}
-          "@
-
-          $releaseNotes = $releaseNotes.Replace('"', '\"')
-          echo "RELEASE_NOTES<<EOF`n$releaseNotes`nEOF" >> $env:GITHUB_OUTPUT
-
-      # Delete existing release before creating a new one
-      - name: Delete Existing Release and Tag
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        run: |
-          # Check if release exists and delete it
-          if gh release view v${{ steps.version.outputs.new_version }} --repo ${{ github.repository }} &>/dev/null; then
-            echo "Deleting existing release..."
-            gh release delete v${{ steps.version.outputs.new_version }} --repo ${{ github.repository }} --yes
-          fi
-
-          # Check if tag exists and delete it
-          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.version.outputs.new_version }}"; then
-            echo "Deleting existing tag..."
-            git push origin :refs/tags/v${{ steps.version.outputs.new_version }}
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: v${{ steps.version.outputs.new_version }}
-          tag_name: v${{ steps.version.outputs.new_version }}
-          body: ${{ steps.notes.outputs.RELEASE_NOTES }}
-          files: ActionableMessages-${{ steps.version.outputs.new_version }}.zip
-          draft: true
