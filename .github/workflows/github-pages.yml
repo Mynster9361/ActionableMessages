@@ -44,10 +44,10 @@ jobs:
         # Using heredoc syntax for better PowerShell multiline handling
         run: |-
           # Import module from ActionableMessages repo
-          Import-Module ActionableMessages
+          Import-Module ./actionable-messages/ActionableMessages.psd1 -Force
 
           # Create module collection directory in GitHub Pages repo
-          $targetDir = "./actionablemessages"
+          $targetDir = "./github-pages/_powershell_modules/actionablemessages"
           New-Item -ItemType Directory -Path $targetDir -Force
           $cmdDocsPath = "$targetDir/commands"
           New-Item -ItemType Directory -Path $cmdDocsPath -Force
