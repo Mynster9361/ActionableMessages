@@ -1,64 +1,33 @@
-name-template: 'v$RESOLVED_VERSION'
-tag-template: 'v$RESOLVED_VERSION'
-
-# Define categories that will group PRs in the release notes
+name-template: "$RESOLVED_VERSION"
+tag-template: "$RESOLVED_VERSION"
 categories:
-  - title: '### Added'
+  - title: Breaking Changes 💥
     labels:
-      - 'feature'
-      - 'enhancement'
-      - 'added'
-  - title: '### Changed'
+      - breaking-change
+  - title: New Features 🎉
     labels:
-      - 'change'
-      - 'changed'
-  - title: '### Fixed'
+      - feature
+  - title: Bug Fixes 🐛
     labels:
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
-  - title: '### Deprecated'
+      - bug-fix
+  - title: Other Changes 🛠
+  - title: Dependencies 📌
     labels:
-      - 'deprecated'
-  - title: '### Removed'
-    labels:
-      - 'removed'
-  - title: '### Security'
-    labels:
-      - 'security'
-
-# Include commits as well as PRs
-include-commits: true
-commit-template: '- $TITLE'
-
-# Define how individual changes appear in the release notes
-change-template: '- $TITLE'
-change-title-escapes: '\<*_&'
-
-# How version numbers should be determined based on labels
+      - dependencies
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 version-resolver:
   major:
     labels:
-      - 'major'
-      - 'breaking'
+      - "major"
   minor:
     labels:
-      - 'minor'
-      - 'feature'
-      - 'enhancement'
+      - "minor"
   patch:
     labels:
-      - 'patch'
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
+      - "patch"
   default: patch
-
-# The actual template for the release notes - notice the double brackets around the date
 template: |
-  ## [$RESOLVED_VERSION] - [$RELEASE_DATE]
-
   $CHANGES
 
-# Set the release date format to match your CHANGELOG.md
-date-format: 'YYYY-MM-DD'
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...$RESOLVED_VERSION
