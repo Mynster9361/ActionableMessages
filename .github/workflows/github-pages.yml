@@ -78,24 +78,25 @@ jobs:
 
           # Create main index page with Jekyll front matter
           $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages PowerShell Module`r`npermalink: /modules/actionablemessages/`r`n---`r`n`r`n"
-          $mainIndexContent += "A PowerShell module for creating Microsoft Actionable Messages.`r`n`r`n"
-
-          # Fixed Installation section with proper code block
-          $mainIndexContent += "## Installation`r`n`r`n"
-          $mainIndexContent += "```powershell"
-          $mainIndexContent += "Install-Module -Name ActionableMessages -Scope CurrentUser"
-          $mainIndexContent += "```"
-
-          # Fixed Quick Start section with proper code block
-          $mainIndexContent += "## Quick Start`r`n`r`n"
-          $mainIndexContent += "```powershell"
-          $mainIndexContent += '$card = New-AMCard -ThemeColor "#0078D7"'
-          $mainIndexContent += 'Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")'
-          $mainIndexContent += '$jsonCard = Export-AMCard -Card $card'
-          $mainIndexContent += "```"
-
-          $mainIndexContent += "## Command Reference`r`n`r`n"
+          $mainIndexContent = @'
+          ---
+          layout: page
+          title: ActionableMessages PowerShell Module
+          permalink: /modules/actionablemessages/
+          ---
+          A PowerShell module for creating Microsoft Actionable Messages.
+          ## Installation
+          ```powershell
+          Install-Module -Name ActionableMessages -Scope CurrentUser
+          ```
+          ## Quick Start
+          ```powershell
+          $card = New-AMCard -ThemeColor "#0078D7"
+          Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
+          $jsonCard = Export-AMCard -Card $card
+          ```
+          ## Command Reference
+          '@
           $cmdLinks = Get-Command -Module ActionableMessages | ForEach-Object {
             "- [``$($_.Name)``](commands/$($_.Name)/)"
           } | Sort-Object
