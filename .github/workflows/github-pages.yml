@@ -39,10 +39,10 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module -Name PlatyPS -Force
 
-      - name: Generate docs
-        shell: pwsh
-        # Using heredoc syntax for better PowerShell multiline handling
-        run: |-
+      - name: Create documentation script
+        shell: bash
+        run: |
+          cat > generate-docs.ps1 << 'EOL'
           # Import module from ActionableMessages repo
           Import-Module ./actionable-messages/ActionableMessages.psd1 -Force
 
@@ -68,7 +68,7 @@ jobs:
                 Required = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).Mandatory
                 Position = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).Position
                 PipelineInput = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipeline -or
-                                $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipelineByPropertyName
+                              $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipelineByPropertyName
                 DefaultValue = if ($parameterInfo.DefaultValue -ne $null -and $parameterInfo.DefaultValue.ToString() -ne "System.Object") { $parameterInfo.DefaultValue } else { "None" }
                 AcceptWildcards = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromRemainingArguments
               }
@@ -310,6 +310,12 @@ jobs:
 
           $mainIndexPath = "$targetDir/index.md"
           [System.IO.File]::WriteAllText($mainIndexPath, ($content -join "`n"))
+          EOL
+
+      - name: Generate docs
+        shell: pwsh
+        run: |
+          ./generate-docs.ps1
 
       - name: Commit documentation to GitHub Pages repo
         run: |
