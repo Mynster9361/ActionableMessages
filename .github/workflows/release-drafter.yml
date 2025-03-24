@@ -68,7 +68,6 @@ jobs:
 
           The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
           and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
           "@
 
           # Format the current release notes
@@ -117,9 +116,9 @@ jobs:
               $repoUrl = "https://github.com/${{ github.repository }}"
               $versionLinks = @"
 
-            [Unreleased]: $repoUrl/compare/v$version...HEAD
-            [$version]: $repoUrl/releases/tag/v$version
-            "@
+          [Unreleased]: $repoUrl/compare/v$version...HEAD
+          [$version]: $repoUrl/releases/tag/v$version
+          "@
               $newContent += $versionLinks
             } else {
               # Update existing version links
