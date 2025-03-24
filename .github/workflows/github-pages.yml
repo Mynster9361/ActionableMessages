@@ -94,175 +94,175 @@ jobs:
 
             # Create markdown content
             $markdown = @"
-      ---
-      layout: page
-      title: $CommandName
-      permalink: /modules/actionablemessages/commands/$CommandName/
-      ---
+              ---
+              layout: page
+              title: $CommandName
+              permalink: /modules/actionablemessages/commands/$CommandName/
+              ---
 
-      # $CommandName
+              # $CommandName
 
-      ## SYNOPSIS
-      $($help.Synopsis)
+              ## SYNOPSIS
+              $($help.Synopsis)
 
-      ## SYNTAX
+              ## SYNTAX
 
-      ```powershell
-      $($command.Definition -replace '(?m)^\s+', '')
-      ```
+              ```powershell
+              $($command.Definition -replace '(?m)^\s+', '')
+              ```
 
-      ## DESCRIPTION
-      $($help.Description.Text)
+              ## DESCRIPTION
+              $($help.Description.Text)
 
-      ## EXAMPLES
-      "@
+              ## EXAMPLES
+              "@
 
-            # Add examples
-            $exampleNumber = 1
-            foreach ($example in $examples) {
-              $markdown += @"
+                    # Add examples
+                    $exampleNumber = 1
+                    foreach ($example in $examples) {
+                      $markdown += @"
 
-      ### EXAMPLE $exampleNumber
-      ```powershell
-      $($example.Code)
-      ```
+              ### EXAMPLE $exampleNumber
+              ```powershell
+              $($example.Code)
+              ```
 
-      $($example.Remarks)
-      "@
-              $exampleNumber++
-            }
+              $($example.Remarks)
+              "@
+                      $exampleNumber++
+                    }
 
-            # Add parameters section
-            $markdown += @"
+                    # Add parameters section
+                    $markdown += @"
 
-      ## PARAMETERS
-      "@
+              ## PARAMETERS
+              "@
 
-            foreach ($parameter in $parameters) {
-              $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
-              $markdown += @"
+                    foreach ($parameter in $parameters) {
+                      $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
+                      $markdown += @"
 
-      ### -$($parameter.Name)
-      $($paramHelp.Description.Text)
+              ### -$($parameter.Name)
+              $($paramHelp.Description.Text)
 
-      ```yaml
-      Type: $($parameter.Type)
-      Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })
-      Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })
+              ```yaml
+              Type: $($parameter.Type)
+              Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })
+              Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })
 
-      Required: $($parameter.Required)
-      Position: $($parameter.Position)
-      Default value: $($parameter.DefaultValue)
-      Accept pipeline input: $($parameter.PipelineInput)
-      Accept wildcard characters: $($parameter.AcceptWildcards)
-      ```
-      "@
-            }
+              Required: $($parameter.Required)
+              Position: $($parameter.Position)
+              Default value: $($parameter.DefaultValue)
+              Accept pipeline input: $($parameter.PipelineInput)
+              Accept wildcard characters: $($parameter.AcceptWildcards)
+              ```
+              "@
+                    }
 
-            # Add Common Parameters section
-            $markdown += @"
+                    # Add Common Parameters section
+                    $markdown += @"
 
-      ### CommonParameters
-      This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters).
-      "@
+              ### CommonParameters
+              This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters).
+              "@
 
-            # Add inputs and outputs sections
-            $markdown += @"
+                    # Add inputs and outputs sections
+                    $markdown += @"
 
-      ## INPUTS
-      ### $($help.InputTypes.InputType.Type.Name)
-      $($help.InputTypes.InputType.Description.Text)
+              ## INPUTS
+              ### $($help.InputTypes.InputType.Type.Name)
+              $($help.InputTypes.InputType.Description.Text)
 
-      ## OUTPUTS
-      ### $($help.ReturnValues.ReturnValue.Type.Name)
-      $($help.ReturnValues.ReturnValue.Description.Text)
-      "@
+              ## OUTPUTS
+              ### $($help.ReturnValues.ReturnValue.Type.Name)
+              $($help.ReturnValues.ReturnValue.Description.Text)
+              "@
 
-            # Add notes and links
-            if ($help.AlertSet.Alert) {
-              $markdown += @"
+                    # Add notes and links
+                    if ($help.AlertSet.Alert) {
+                      $markdown += @"
 
-      ## NOTES
-      $($help.AlertSet.Alert.Text)
-      "@
-            }
+              ## NOTES
+              $($help.AlertSet.Alert.Text)
+              "@
+                    }
 
-            if ($help.RelatedLinks.NavigationLink) {
-              $markdown += @"
+                    if ($help.RelatedLinks.NavigationLink) {
+                      $markdown += @"
 
-      ## RELATED LINKS
-      "@
-              foreach ($link in $help.RelatedLinks.NavigationLink) {
-                if ($link.Uri) {
-                  $markdown += @"
-      [$($link.LinkText)]($($link.Uri))
-      "@
-                } else {
-                  $markdown += @"
-      [$($link.LinkText)]
-      "@
-                }
-              }
-            }
+              ## RELATED LINKS
+              "@
+                      foreach ($link in $help.RelatedLinks.NavigationLink) {
+                        if ($link.Uri) {
+                          $markdown += @"
+              [$($link.LinkText)]($($link.Uri))
+              "@
+                        } else {
+                          $markdown += @"
+              [$($link.LinkText)]
+              "@
+                        }
+                      }
+                    }
 
-            # Write the markdown file
-            Set-Content -Path $OutputPath -Value $markdown -Encoding UTF8
-          }
+                    # Write the markdown file
+                    Set-Content -Path $OutputPath -Value $markdown -Encoding UTF8
+                  }
 
-          # Generate documentation for each command in the module
-          $commands = Get-Command -Module ActionableMessages
-          foreach ($command in $commands) {
-            $outputFile = Join-Path $cmdDocsPath "$($command.Name).md"
-            Get-CommandDocumentation -CommandName $command.Name -OutputPath $outputFile
-          }
+                  # Generate documentation for each command in the module
+                  $commands = Get-Command -Module ActionableMessages
+                  foreach ($command in $commands) {
+                    $outputFile = Join-Path $cmdDocsPath "$($command.Name).md"
+                    Get-CommandDocumentation -CommandName $command.Name -OutputPath $outputFile
+                  }
 
-          # Create commands index page
-          $commandsIndexPath = "$cmdDocsPath/index.md"
-          $commandsIndexContent = @"
-      ---
-      layout: page
-      title: ActionableMessages Commands
-      permalink: /modules/actionablemessages/commands/
-      ---
+                  # Create commands index page
+                  $commandsIndexPath = "$cmdDocsPath/index.md"
+                  $commandsIndexContent = @"
+              ---
+              layout: page
+              title: ActionableMessages Commands
+              permalink: /modules/actionablemessages/commands/
+              ---
 
-      # ActionableMessages Commands
+              # ActionableMessages Commands
 
-      $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`]($($_.Name)/)" }) -join "`r`n")
-      "@
-          Set-Content -Path $commandsIndexPath -Value $commandsIndexContent -Encoding UTF8
+              $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`]($($_.Name)/)" }) -join "`r`n")
+              "@
+                  Set-Content -Path $commandsIndexPath -Value $commandsIndexContent -Encoding UTF8
 
-          # Create main index page with Jekyll front matter
-          $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = @"
-      ---
-      layout: page
-      title: ActionableMessages PowerShell Module
-      permalink: /modules/actionablemessages/
-      ---
+                  # Create main index page with Jekyll front matter
+                  $mainIndexPath = "$targetDir/index.md"
+                  $mainIndexContent = @"
+              ---
+              layout: page
+              title: ActionableMessages PowerShell Module
+              permalink: /modules/actionablemessages/
+              ---
 
-      # ActionableMessages PowerShell Module
+              # ActionableMessages PowerShell Module
 
-      A PowerShell module for creating Microsoft Actionable Messages.
+              A PowerShell module for creating Microsoft Actionable Messages.
 
-      ## Installation
+              ## Installation
 
-      ```powershell
-      Install-Module -Name ActionableMessages -Scope CurrentUser
-      ```
+              ```powershell
+              Install-Module -Name ActionableMessages -Scope CurrentUser
+              ```
 
-      ## Quick Start
+              ## Quick Start
 
-      ```powershell
-      $card = New-AMCard -ThemeColor "#0078D7"
-      Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
-      $jsonCard = Export-AMCard -Card $card
-      ```
+              ```powershell
+              $card = New-AMCard -ThemeColor "#0078D7"
+              Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
+              $jsonCard = Export-AMCard -Card $card
+              ```
 
-      ## Command Reference
+              ## Command Reference
 
-      $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`](commands/$($_.Name)/)" }) -join "`r`n")
-      "@
-          Set-Content -Path $mainIndexPath -Value $mainIndexContent -Encoding UTF8
+              $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`](commands/$($_.Name)/)" }) -join "`r`n")
+              "@
+                  Set-Content -Path $mainIndexPath -Value $mainIndexContent -Encoding UTF8
 
       - name: Commit documentation to GitHub Pages repo
         run: |
