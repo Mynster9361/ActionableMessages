@@ -1,5 +1,7 @@
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
+
+# Define categories that will group PRs in the release notes
 categories:
   - title: '### Added'
     labels:
@@ -24,22 +26,46 @@ categories:
   - title: '### Security'
     labels:
       - 'security'
+
+# Include commits as well as PRs (helpful if you don't always use PRs)
+include-commits: true
+commit-template: '- $TITLE'
+
+# Define how individual changes appear in the release notes
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 change-title-escapes: '\<*_&'
+
+# How version numbers should be determined based on labels
 version-resolver:
   major:
     labels:
       - 'major'
+      - 'breaking'
   minor:
     labels:
       - 'minor'
+      - 'feature'
+      - 'enhancement'
   patch:
     labels:
       - 'patch'
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
   default: patch
+
+# The actual template for the release notes
 template: |
-  ## [$RESOLVED_VERSION] - [$RELEASE_DATE]
+  ## [$RESOLVED_VERSION] - $RELEASE_DATE
 
   $CHANGES
 
   **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+# Set the release date format to match your CHANGELOG.md
+date-format: 'YYYY-MM-DD'
+
+# Auto-replace unreleased heading in CHANGELOG.md
+replacers:
+  - search: '/## Unreleased/g'
+    replace: '## [v$RESOLVED_VERSION] - $RELEASE_DATE'
