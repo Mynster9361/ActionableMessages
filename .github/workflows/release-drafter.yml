@@ -37,21 +37,25 @@ jobs:
 
           $VersionBump = "${{ github.event.inputs.versionBump }}"
 
-          $NewVersion = $CurrentVersion
-          if ($VersionBump -eq "major") {
-            $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0)
+          # Always bump the version even if not specified
+          if ([string]::IsNullOrEmpty($VersionBump) -or $VersionBump -eq "patch") {
+            $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1)
           }
           elseif ($VersionBump -eq "minor") {
             $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0)
           }
-          elseif ($VersionBump -eq "patch") {
+          elseif ($VersionBump -eq "major") {
+            $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0)
+          }
+          else {
+            # Default to patch bump if unrecognized input
             $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1)
           }
 
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
 
           Write-Host "Updated version from $CurrentVersion to $NewVersion"
-          "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
+          echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
       - name: Update Changelog
         id: changelog
@@ -90,12 +94,21 @@ jobs:
         run: |
           ./package.ps1
 
+      # Check if tag already exists and delete it if it does
+      - name: Check and Delete Existing Tag
+        shell: bash
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.version.outputs.new_version }}"; then
+            echo "Tag exists, deleting..."
+            git push origin :refs/tags/v${{ steps.version.outputs.new_version }}
+          fi
+
       - name: Create Tag
         uses: rickstaa/action-create-tag@v1
         with:
           tag: v${{ steps.version.outputs.new_version }}
           message: "Release v${{ steps.version.outputs.new_version }}"
-          force_push_tag: true
+          force_push_tag: false
 
       - name: Prepare Release Notes
         id: notes
@@ -111,7 +124,15 @@ jobs:
           "@
 
           $releaseNotes = $releaseNotes.Replace('"', '\"')
-          "RELEASE_NOTES<<EOF`n$releaseNotes`nEOF" >> $env:GITHUB_OUTPUT
+          echo "RELEASE_NOTES<<EOF`n$releaseNotes`nEOF" >> $env:GITHUB_OUTPUT
+
+      # Delete existing release before creating a new one
+      - name: Delete Existing Release
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          delete_release: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
