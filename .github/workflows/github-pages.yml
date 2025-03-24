@@ -54,19 +54,35 @@ jobs:
           New-Item -ItemType Directory -Path $cmdDocsPath -Force
           New-MarkdownHelp -Module ActionableMessages -OutputFolder $cmdDocsPath -Force
 
-          # Add front matter to command pages
+          # Add front matter and fix formatting for command pages
           $cmdFiles = Get-ChildItem -Path "$cmdDocsPath" -Filter "*.md"
           foreach($file in $cmdFiles) {
             $content = Get-Content -Path $file.FullName -Raw
             $cmdName = $file.BaseName
 
-            # Use string concatenation instead of here-strings
+            # Fix code blocks to use powershell language specifier
+            # Match code blocks that don't already have a language specified
+            $content = $content -replace '(?m)^```(\r?\n)(?!\s*\w+)', '```powershell$1'
+
+            # Fix parameter blocks (keep yaml format)
+            $content = $content -replace '(?m)^```\r?\npowershell\r?\nType: (.*?)```', '```yaml$1```'
+
+            # Fix CommonParameters link if necessary
+            $content = $content -replace 'http://go.microsoft.com/fwlink/\?LinkID=113216', 'https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters'
+
+            # Fix Example 3 formatting (specific to Add-AMElement) where text appears outside a code block
+            $content = $content -replace '# Now add elements to the container\r?\n\$header', '# Now add elements to the container\r\n```powershell\r\n$header'
+            $content = $content -replace '\)\r?\nAdd-AMElement -Card \$card -Element \$factSet -ContainerId "info-section"', ')\r\nAdd-AMElement -Card $card -Element $factSet -ContainerId "info-section"\r\n```'
+
+            # Add proper front matter
             $frontMatter = "---`r`nlayout: page`r`ntitle: $cmdName`r`npermalink: /modules/actionablemessages/commands/$cmdName/`r`n---`r`n`r`n"
+
+            # Keep existing metadata section
             $newContent = $frontMatter + $content
             Set-Content -Path $file.FullName -Value $newContent
           }
 
-          # Create commands index page
+          # Create commands index page (keep the existing code)
           $commandsIndexPath = "$cmdDocsPath/index.md"
           $commandsIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages Commands`r`npermalink: /modules/actionablemessages/commands/`r`n---`r`n`r`n"
           $commandsIndexContent += "# ActionableMessages Commands`r`n`r`n"
