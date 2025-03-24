@@ -60,29 +60,31 @@ jobs:
             $content = Get-Content -Path $file.FullName -Raw
             $cmdName = $file.BaseName
 
-            # Fix code blocks to use powershell language specifier
-            # Match code blocks that don't already have a language specified
+            # Step 1: Fix code block closing tags
+            $content = $content -replace '```powershell\s*$', '```'
+
+            # Step 2: Fix code blocks to use powershell language specifier
             $content = $content -replace '(?m)^```(\r?\n)(?!\s*\w+)', '```powershell$1'
 
-            # Fix parameter blocks (keep yaml format)
-            $content = $content -replace '(?m)^```\r?\npowershell\r?\nType: (.*?)```', '```yaml$1```'
+            # Step 3: Fix parameter blocks (keep yaml format)
+            $content = $content -replace '```powershell\s*\r?\nType:', '```yaml$&Type:'
 
-            # Fix CommonParameters link if necessary
+            # Step 4: Fix CommonParameters link
             $content = $content -replace 'http://go.microsoft.com/fwlink/\?LinkID=113216', 'https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters'
 
-            # Fix Example 3 formatting (specific to Add-AMElement) where text appears outside a code block
-            $content = $content -replace '# Now add elements to the container\r?\n\$header', '# Now add elements to the container\r\n```powershell\r\n$header'
+            # Step 5: Fix Example 3 formatting (specific to Add-AMElement) where text appears outside a code block
+            $content = $content -replace '# Now add elements to the container\r?\n\$header', '# Now add elements to the container\r\n\r\n```powershell\r\n$header'
             $content = $content -replace '\)\r?\nAdd-AMElement -Card \$card -Element \$factSet -ContainerId "info-section"', ')\r\nAdd-AMElement -Card $card -Element $factSet -ContainerId "info-section"\r\n```'
 
             # Add proper front matter
             $frontMatter = "---`r`nlayout: page`r`ntitle: $cmdName`r`npermalink: /modules/actionablemessages/commands/$cmdName/`r`n---`r`n`r`n"
 
-            # Keep existing metadata section
+            # Combine front matter with fixed content
             $newContent = $frontMatter + $content
             Set-Content -Path $file.FullName -Value $newContent
           }
 
-          # Create commands index page (keep the existing code)
+          # Create commands index page
           $commandsIndexPath = "$cmdDocsPath/index.md"
           $commandsIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages Commands`r`npermalink: /modules/actionablemessages/commands/`r`n---`r`n`r`n"
           $commandsIndexContent += "# ActionableMessages Commands`r`n`r`n"
@@ -92,28 +94,22 @@ jobs:
           $commandsIndexContent += [string]::Join("`r`n", $commandLinks)
           Set-Content -Path $commandsIndexPath -Value $commandsIndexContent
 
-          # Create main index page with Jekyll front matter
+          # Create main index page with Jekyll front matter (using string concatenation for reliability)
           $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = @'
-          ---
-          layout: page
-          title: ActionableMessages PowerShell Module
-          permalink: /modules/actionablemessages/
-          ---
-          A PowerShell module for creating Microsoft Actionable Messages.
-          ## Installation
-          ```powershell
-          Install-Module -Name ActionableMessages -Scope CurrentUser
-          ```
-          ## Quick Start
-          ```powershell
-          $card = New-AMCard -ThemeColor "#0078D7"
-          Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
-          $jsonCard = Export-AMCard -Card $card
-          ```
-          ## Command Reference
-
-          '@
+          $mainIndexContent = "---`r`nlayout: page`r`ntitle: ActionableMessages PowerShell Module`r`npermalink: /modules/actionablemessages/`r`n---`r`n`r`n"
+          $mainIndexContent += "# ActionableMessages PowerShell Module`r`n`r`n"
+          $mainIndexContent += "A PowerShell module for creating Microsoft Actionable Messages.`r`n`r`n"
+          $mainIndexContent += "## Installation`r`n`r`n"
+          $mainIndexContent += "```powershell`r`n"
+          $mainIndexContent += "Install-Module -Name ActionableMessages -Scope CurrentUser`r`n"
+          $mainIndexContent += "````r`n`r`n"
+          $mainIndexContent += "## Quick Start`r`n`r`n"
+          $mainIndexContent += "```powershell`r`n"
+          $mainIndexContent += "`$card = New-AMCard -ThemeColor `"#0078D7`"`r`n"
+          $mainIndexContent += "Add-AMElement -InputObject `$card -Element (New-AMTextBlock -Text `"Hello, World!`")`r`n"
+          $mainIndexContent += "`$jsonCard = Export-AMCard -Card `$card`r`n"
+          $mainIndexContent += "````r`n`r`n"
+          $mainIndexContent += "## Command Reference`r`n`r`n"
           $cmdLinks = Get-Command -Module ActionableMessages | ForEach-Object {
             "- [``$($_.Name)``](commands/$($_.Name)/)"
           } | Sort-Object
