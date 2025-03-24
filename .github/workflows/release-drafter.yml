@@ -4,7 +4,7 @@ on:
   push:
     # branches to consider in the event; optional, defaults to all
     branches:
-      - master
+      - main
   # pull_request event is required only for autolabeler
   pull_request:
     # Only following types are handled by the action, but one can default to all as well
@@ -14,6 +14,9 @@ on:
   #   types: [opened, reopened, synchronize]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   update_release_draft:
@@ -30,5 +33,8 @@ jobs:
         # with:
         #   config-name: my-config.yml
         #   disable-autolabeler: true
+        with:
+          # Specifying config name
+          config-name: release-drafter.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
