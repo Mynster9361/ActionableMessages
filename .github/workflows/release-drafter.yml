@@ -127,12 +127,23 @@ jobs:
           echo "RELEASE_NOTES<<EOF`n$releaseNotes`nEOF" >> $env:GITHUB_OUTPUT
 
       # Delete existing release before creating a new one
-      - name: Delete Existing Release
-        uses: dev-drprasad/delete-tag-and-release@v0.2.1
-        with:
-          tag_name: v${{ steps.version.outputs.new_version }}
-          delete_release: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete Existing Release and Tag
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          # Check if release exists and delete it
+          if gh release view v${{ steps.version.outputs.new_version }} --repo ${{ github.repository }} &>/dev/null; then
+            echo "Deleting existing release..."
+            gh release delete v${{ steps.version.outputs.new_version }} --repo ${{ github.repository }} --yes
+          fi
+
+          # Check if tag exists and delete it
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.version.outputs.new_version }}"; then
+            echo "Deleting existing tag..."
+            git push origin :refs/tags/v${{ steps.version.outputs.new_version }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
