@@ -14,12 +14,13 @@ jobs:
   update-release-draft:
     runs-on: ubuntu-latest
     steps:
-      # First run release-drafter to get the version and draft release body
+      # Run release-drafter to determine version number
       - name: Draft Release
         id: release-drafter
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
+          disable-releaser: true  # Don't create the release yet
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -48,107 +49,47 @@ jobs:
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
-      # Update CHANGELOG.md file with Keep a Changelog format
-      - name: Update Changelog
-        id: changelog
+      # Extract release notes from CHANGELOG.md
+      - name: Extract Release Notes
+        id: extract-release-notes
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.new_version }}"
-          $releaseBody = @"
-          ${{ steps.release-drafter.outputs.body }}
-          "@
-
           $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
-          $today = Get-Date -Format "yyyy-MM-dd"
-
-          # Create changelog header if it doesn't exist
-          $header = @"
-          # Changelog
-          All notable changes to this project will be documented in this file.
-
-          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-          "@
-
-          # Format the current release notes
-          $releaseNotes = @"
-
-          ## [$version] - $today
-
-          $releaseBody
-          "@
-
-          # Replace any title line if present (usually comes from release-drafter template)
-          $releaseNotes = $releaseNotes -replace "## Changes", ""
 
           if (Test-Path $changelogPath) {
-            $existingContent = Get-Content -Path $changelogPath -Raw
+            $changelogContent = Get-Content -Path $changelogPath -Raw
 
-            # Check if this version already exists in the changelog
-            if ($existingContent -match "\#\# \[$version\]") {
-              Write-Host "Version $version already exists in the changelog. Skipping addition."
-              $newContent = $existingContent
+            # Find the section for the current version
+            $versionHeader = "## [$version]"
+            $nextVersionPattern = "## \["
+
+            # Match the current version's section
+            $match = [regex]::Match($changelogContent, "($versionHeader.*?)(?=$nextVersionPattern|\z)", [System.Text.RegularExpressions.RegexOptions]::Singleline)
+
+            if ($match.Success) {
+              $releaseNotes = $match.Groups[1].Value.Trim()
+              # Escape newlines for GitHub Actions output
+              $releaseNotes = $releaseNotes -replace "`n", "%0A"
+              echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
+              echo "$releaseNotes" >> $env:GITHUB_OUTPUT
+              echo "EOF" >> $env:GITHUB_OUTPUT
+              echo "Found release notes for version $version"
             } else {
-              # Check if the header already exists in the file
-              if ($existingContent -match "The format is based on \[Keep a Changelog\]") {
-                # Header exists, just add new release notes after the header
-                $headerEndIndex = $existingContent.IndexOf("## [")
-                if ($headerEndIndex -gt 0) {
-                  $newContent = $existingContent.Substring(0, $headerEndIndex) + $releaseNotes + $existingContent.Substring($headerEndIndex)
-                } else {
-                  # No existing versions yet
-                  $newContent = $existingContent + $releaseNotes
-                }
-              } else {
-                # No proper header, add it along with the new release
-                $newContent = $header + $releaseNotes + "`n`n" + $existingContent
-              }
+              echo "No release notes found for version $version in CHANGELOG.md"
+              # Fall back to release-drafter's generated notes
+              $releaseNotes = "${{ steps.release-drafter.outputs.body }}" -replace "`n", "%0A"
+              echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
+              echo "$releaseNotes" >> $env:GITHUB_OUTPUT
+              echo "EOF" >> $env:GITHUB_OUTPUT
             }
           } else {
-            # Create new file with header and release
-            $newContent = $header + $releaseNotes
+            echo "CHANGELOG.md not found, using release-drafter's generated notes"
+            $releaseNotes = "${{ steps.release-drafter.outputs.body }}" -replace "`n", "%0A"
+            echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
+            echo "$releaseNotes" >> $env:GITHUB_OUTPUT
+            echo "EOF" >> $env:GITHUB_OUTPUT
           }
-
-          # Update version links at the bottom only if we made changes
-          if (($existingContent -notmatch "\#\# \[$version\]") -or (-not (Test-Path $changelogPath))) {
-            if ($newContent -notmatch '\[Unreleased\]:') {
-              # Add version links if they don't exist
-              $repoUrl = "https://github.com/${{ github.repository }}"
-              $versionLinks = @"
-
-          [Unreleased]: $repoUrl/compare/v$version...HEAD
-          [$version]: $repoUrl/releases/tag/v$version
-          "@
-              $newContent += $versionLinks
-            } else {
-              # Update existing version links
-              $currentUnreleasedLink = [regex]::Match($newContent, '\[Unreleased\]:(.*?)\n').Groups[1].Value.Trim()
-              $previousVersionMatch = [regex]::Match($currentUnreleasedLink, 'compare/(v?.*?)\.\.\.HEAD')
-
-              if ($previousVersionMatch.Success) {
-                $previousVersion = $previousVersionMatch.Groups[1].Value
-
-                # Don't update if the links already point to the current version
-                if ($previousVersion -ne "v$version") {
-                  # Replace Unreleased link
-                  $newContent = $newContent -replace '\[Unreleased\]:(.*?)\n', "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n"
-
-                  # Add new version link if not already there
-                  if ($newContent -notmatch "\[$version\]:") {
-                    $versionLinkPattern = '\[Unreleased\]:(.*?)\n'
-                    $versionLink = "[$version]: https://github.com/${{ github.repository }}/compare/$previousVersion...v$version`n"
-                    $newContent = [regex]::Replace($newContent, $versionLinkPattern, "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n$versionLink")
-                  }
-                }
-              }
-            }
-          }
-
-          Set-Content -Path $changelogPath -Value $newContent
-
-          # Pass the release body to future steps
-          $releaseBody = $releaseBody -replace "`n", "%0A"
-          echo "release_body=$releaseBody" >> $env:GITHUB_OUTPUT
 
       # Create and package a .zip file for the release
       - name: Package Module
@@ -168,27 +109,24 @@ jobs:
           # Create zip file
           Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
 
-      # Commit the updated CHANGELOG.md and Module Version
+      # Commit the updated Module Version
       - name: Commit Changes
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add CHANGELOG.md ActionableMessages.psd1
-          git commit -m "Update CHANGELOG.md and bump version to v${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
+          git add ActionableMessages.psd1
+          git commit -m "Bump version to v${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
           git push
 
-      # Use GitHub CLI to update the release with assets
-      - name: Upload Release Assets
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      # Create the GitHub release with notes from CHANGELOG.md
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.version.outputs.new_version }}
+          tag_name: v${{ steps.version.outputs.new_version }}
+          body: ${{ steps.extract-release-notes.outputs.release_notes }}
+          files: ActionableMessages-${{ steps.version.outputs.new_version }}.zip
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Get the release ID from release-drafter output
-          RELEASE_ID="${{ steps.release-drafter.outputs.id }}"
-
-          # Upload the ZIP file
-          gh release upload "v${{ steps.version.outputs.new_version }}" "ActionableMessages-${{ steps.version.outputs.new_version }}.zip" --clobber
-
-          # Upload the CHANGELOG.md file
-          gh release upload "v${{ steps.version.outputs.new_version }}" "CHANGELOG.md" --clobber
