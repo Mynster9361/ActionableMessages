@@ -54,14 +54,33 @@ jobs:
           New-Item -ItemType Directory -Path $cmdDocsPath -Force
           New-MarkdownHelp -Module ActionableMessages -OutputFolder $cmdDocsPath -Force
 
-          # Add front matter to command pages
+          # Post-process documentation for Jekyll Chirpy compatibility
           $cmdFiles = Get-ChildItem -Path "$cmdDocsPath" -Filter "*.md"
           foreach($file in $cmdFiles) {
             $content = Get-Content -Path $file.FullName -Raw
             $cmdName = $file.BaseName
 
-            # Use string concatenation instead of here-strings
-            $frontMatter = "---`r`nlayout: page`r`ntitle: $cmdName`r`npermalink: /modules/actionablemessages/commands/$cmdName/`r`n---`r`n`r`n"
+            # Remove existing front matter and add our own
+            $content = $content -replace "(?s)^---.*?---\r?\n", ""
+
+            # Convert single-backtick code blocks to triple-backtick
+            $content = $content -replace "(?m)^```(\w+)", "``````$1"
+            $content = $content -replace "(?m)^```$", "``````"
+
+            # Fix CommonParameters link
+            $content = $content -replace "http://go.microsoft.com/fwlink/\?LinkID=113216", "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters"
+
+            # Create new front matter
+            $frontMatter = @"
+          ---
+          layout: page
+          title: $cmdName
+          permalink: /modules/actionablemessages/commands/$cmdName/
+          ---
+
+          "@
+
+            # Combine front matter with fixed content
             $newContent = $frontMatter + $content
             Set-Content -Path $file.FullName -Value $newContent
           }
@@ -98,9 +117,8 @@ jobs:
           ## Command Reference
 
           '@
-          $cmdLinks = Get-Command -Module ActionableMessages | ForEach-Object {
-            "- [``$($_.Name)``](commands/$($_.Name)/)"
-          } | Sort-Object
+
+          $cmdLinks = $(Get-Command -Module ActionableMessages | ForEach-Object { "- $($_.Name)/)" } | Sort-Object) "@
           $mainIndexContent += [string]::Join("`r`n", $cmdLinks)
           Set-Content -Path $mainIndexPath -Value $mainIndexContent
 
