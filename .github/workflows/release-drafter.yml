@@ -37,17 +37,21 @@ jobs:
 
           $VersionBump = "${{ github.event.inputs.versionBump }}"
 
-          switch ($VersionBump) {
-            "major" { $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0) }
-            "minor" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0) }
-            "patch" { $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1) }
-            default { $NewVersion = $CurrentVersion }
+          $NewVersion = $CurrentVersion
+          if ($VersionBump -eq "major") {
+            $NewVersion = [Version]::new($CurrentVersion.Major + 1, 0, 0)
+          }
+          elseif ($VersionBump -eq "minor") {
+            $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor + 1, 0)
+          }
+          elseif ($VersionBump -eq "patch") {
+            $NewVersion = [Version]::new($CurrentVersion.Major, $CurrentVersion.Minor, $CurrentVersion.Build + 1)
           }
 
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
 
           Write-Host "Updated version from $CurrentVersion to $NewVersion"
-          echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
+          "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
       - name: Update Changelog
         id: changelog
@@ -55,6 +59,25 @@ jobs:
         with:
           mode: release
           releaseVersion: ${{ steps.version.outputs.new_version }}
+
+      - name: Create Package Script
+        shell: bash
+        run: |
+          cat > package.ps1 << 'EOF'
+          $ModuleVersion = "${{ steps.version.outputs.new_version }}"
+          $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
+          $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
+
+          # Create a temp directory for the module files
+          $TempDir = Join-Path -Path $env:TEMP -ChildPath "ActionableMessages"
+          New-Item -Path $TempDir -ItemType Directory -Force
+
+          # Copy module files to temp directory
+          Copy-Item -Path "$env:GITHUB_WORKSPACE/*" -Destination $TempDir -Recurse -Exclude @(".git", ".github")
+
+          # Create zip file
+          Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
+          EOF
 
       - name: Run Tests
         shell: pwsh
@@ -65,19 +88,7 @@ jobs:
       - name: Package Module
         shell: pwsh
         run: |
-          $ModuleVersion = "${{ steps.version.outputs.new_version }}"
-          $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
-          $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
-
-          # Create a temp directory for the module files - using Linux-compatible path
-          $TempDir = Join-Path -Path "/tmp" -ChildPath "ActionableMessages"
-          New-Item -Path $TempDir -ItemType Directory -Force
-
-          # Copy module files to temp directory
-          Copy-Item -Path "$env:GITHUB_WORKSPACE/*" -Destination $TempDir -Recurse -Exclude @(".git", ".github")
-
-          # Create zip file
-          Compress-Archive -Path "$TempDir/*" -DestinationPath $ZipFilePath -Force
+          ./package.ps1
 
       - name: Create Tag
         uses: rickstaa/action-create-tag@v1
@@ -86,18 +97,27 @@ jobs:
           message: "Release v${{ steps.version.outputs.new_version }}"
           force_push_tag: true
 
+      - name: Prepare Release Notes
+        id: notes
+        shell: pwsh
+        run: |
+          $releaseNotes = @"
+          # ActionableMessages v${{ steps.version.outputs.new_version }}
+
+          ## Changes
+          ${{ steps.changelog.outputs.releasenotes }}
+
+          ${{ github.event.inputs.releaseNotes }}
+          "@
+
+          $releaseNotes = $releaseNotes.Replace('"', '\"')
+          "RELEASE_NOTES<<EOF`n$releaseNotes`nEOF" >> $env:GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: v${{ steps.version.outputs.new_version }}
           tag_name: v${{ steps.version.outputs.new_version }}
-          body: |
-            # ActionableMessages v${{ steps.version.outputs.new_version }}
-
-            ## Changes
-            ${{ steps.changelog.outputs.releasenotes }}
-
-            ${{ github.event.inputs.releaseNotes }}
-          files: |
-            ActionableMessages-${{ steps.version.outputs.new_version }}.zip
+          body: ${{ steps.notes.outputs.RELEASE_NOTES }}
+          files: ActionableMessages-${{ steps.version.outputs.new_version }}.zip
           draft: true
