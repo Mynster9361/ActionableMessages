@@ -68,8 +68,8 @@ jobs:
           $ZipFileName = "ActionableMessages-$ModuleVersion.zip"
           $ZipFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath $ZipFileName
 
-          # Create a temp directory for the module files
-          $TempDir = Join-Path -Path $env:TEMP -ChildPath "ActionableMessages"
+          # Use PowerShell's cross-platform temp path method instead of $env:TEMP
+          $TempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "ActionableMessages"
           New-Item -Path $TempDir -ItemType Directory -Force
 
           # Copy module files to temp directory
