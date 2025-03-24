@@ -118,120 +118,124 @@ jobs:
             # Get the syntax first to avoid issues with nested function calls
             $syntax = Get-CleanSyntax $command
 
-            # Create front matter section
-            $sb = [System.Text.StringBuilder]::new()
-            [void]$sb.AppendLine("---")
-            [void]$sb.AppendLine("layout: page")
-            [void]$sb.AppendLine("title: $CommandName")
-            [void]$sb.AppendLine("permalink: /modules/actionablemessages/commands/$CommandName/")
-            [void]$sb.AppendLine("---")
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("# $CommandName")
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## SYNOPSIS")
-            [void]$sb.AppendLine($help.Synopsis)
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## SYNTAX")
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("```powershell")
-            [void]$sb.AppendLine($syntax)
-            [void]$sb.AppendLine("```")
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## DESCRIPTION")
-            [void]$sb.AppendLine($help.Description.Text)
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## EXAMPLES")
+            # Pre-process help text to avoid issues with special characters
+            $synopsis = if ($help.Synopsis) { $help.Synopsis.Trim() } else { "No synopsis available." }
+            $description = if ($help.Description.Text) { $help.Description.Text.Trim() } else { "No description available." }
+
+            # Use string concatenation instead of StringBuilder to avoid parsing issues
+            $lines = @()
+            $lines += "---"
+            $lines += "layout: page"
+            $lines += "title: $CommandName"
+            $lines += "permalink: /modules/actionablemessages/commands/$CommandName/"
+            $lines += "---"
+            $lines += ""
+            $lines += "# $CommandName"
+            $lines += ""
+            $lines += "## SYNOPSIS"
+            $lines += $synopsis
+            $lines += ""
+            $lines += "## SYNTAX"
+            $lines += ""
+            $lines += "```powershell"
+            $lines += $syntax
+            $lines += "```"
+            $lines += ""
+            $lines += "## DESCRIPTION"
+            $lines += $description
+            $lines += ""
+            $lines += "## EXAMPLES"
 
             # Add examples
             $exampleNumber = 1
             foreach ($example in $examples) {
-              [void]$sb.AppendLine("")
-              [void]$sb.AppendLine("### EXAMPLE $exampleNumber")
-              [void]$sb.AppendLine("```powershell")
-              [void]$sb.AppendLine($example.Code)
-              [void]$sb.AppendLine("```")
-              [void]$sb.AppendLine("")
+              $lines += ""
+              $lines += "### EXAMPLE $exampleNumber"
+              $lines += "```powershell"
+              $lines += $example.Code
+              $lines += "```"
+              $lines += ""
               if ($example.Remarks) {
-                [void]$sb.AppendLine($example.Remarks)
-                [void]$sb.AppendLine("")
+                $lines += $example.Remarks
+                $lines += ""
               }
               $exampleNumber++
             }
 
             # Add parameters section
-            [void]$sb.AppendLine("## PARAMETERS")
+            $lines += "## PARAMETERS"
 
             # First add the regular parameters (non-common)
             foreach ($parameter in $parameters | Where-Object { $_.Name -notmatch '^(Debug|ErrorAction|ErrorVariable|InformationAction|InformationVariable|OutBuffer|OutVariable|PipelineVariable|ProgressAction|Verbose|WarningAction|WarningVariable)$' }) {
               $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
-              [void]$sb.AppendLine("")
-              [void]$sb.AppendLine("### -$($parameter.Name)")
+              $lines += ""
+              $lines += "### -$($parameter.Name)"
               if ($paramHelp.Description.Text) {
-                [void]$sb.AppendLine($paramHelp.Description.Text)
-                [void]$sb.AppendLine("")
+                $lines += $paramHelp.Description.Text
+                $lines += ""
               }
-              [void]$sb.AppendLine("```yaml")
-              [void]$sb.AppendLine("Type: $($parameter.Type)")
-              [void]$sb.AppendLine("Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })")
-              [void]$sb.AppendLine("Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })")
-              [void]$sb.AppendLine("")
-              [void]$sb.AppendLine("Required: $($parameter.Required)")
-              [void]$sb.AppendLine("Position: $($parameter.Position)")
-              [void]$sb.AppendLine("Default value: $($parameter.DefaultValue)")
-              [void]$sb.AppendLine("Accept pipeline input: $($parameter.PipelineInput)")
-              [void]$sb.AppendLine("Accept wildcard characters: $($parameter.AcceptWildcards)")
-              [void]$sb.AppendLine("```")
+              $lines += "```yaml"
+              $lines += "Type: $($parameter.Type)"
+              $lines += "Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })"
+              $lines += "Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })"
+              $lines += ""
+              $lines += "Required: $($parameter.Required)"
+              $lines += "Position: $($parameter.Position)"
+              $lines += "Default value: $($parameter.DefaultValue)"
+              $lines += "Accept pipeline input: $($parameter.PipelineInput)"
+              $lines += "Accept wildcard characters: $($parameter.AcceptWildcards)"
+              $lines += "```"
             }
 
             # Add Common Parameters section
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("### CommonParameters")
-            [void]$sb.AppendLine("This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters).")
+            $lines += ""
+            $lines += "### CommonParameters"
+            $lines += "This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters)."
 
             # Add inputs and outputs sections
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## INPUTS")
+            $lines += ""
+            $lines += "## INPUTS"
             if ($help.InputTypes.InputType.Type.Name) {
-              [void]$sb.AppendLine("### $($help.InputTypes.InputType.Type.Name)")
+              $lines += "### $($help.InputTypes.InputType.Type.Name)"
               if ($help.InputTypes.InputType.Description.Text) {
-                [void]$sb.AppendLine($help.InputTypes.InputType.Description.Text)
+                $lines += $help.InputTypes.InputType.Description.Text
               }
             } else {
-              [void]$sb.AppendLine("### None")
+              $lines += "### None"
             }
 
-            [void]$sb.AppendLine("")
-            [void]$sb.AppendLine("## OUTPUTS")
+            $lines += ""
+            $lines += "## OUTPUTS"
             if ($help.ReturnValues.ReturnValue.Type.Name) {
-              [void]$sb.AppendLine("### $($help.ReturnValues.ReturnValue.Type.Name)")
+              $lines += "### $($help.ReturnValues.ReturnValue.Type.Name)"
               if ($help.ReturnValues.ReturnValue.Description.Text) {
-                [void]$sb.AppendLine($help.ReturnValues.ReturnValue.Description.Text)
+                $lines += $help.ReturnValues.ReturnValue.Description.Text
               }
             } else {
-              [void]$sb.AppendLine("### None")
+              $lines += "### None"
             }
 
             # Add notes and links
             if ($help.AlertSet.Alert) {
-              [void]$sb.AppendLine("")
-              [void]$sb.AppendLine("## NOTES")
-              [void]$sb.AppendLine($help.AlertSet.Alert.Text)
+              $lines += ""
+              $lines += "## NOTES"
+              $lines += $help.AlertSet.Alert.Text
             }
 
             if ($help.RelatedLinks.NavigationLink) {
-              [void]$sb.AppendLine("")
-              [void]$sb.AppendLine("## RELATED LINKS")
+              $lines += ""
+              $lines += "## RELATED LINKS"
               foreach ($link in $help.RelatedLinks.NavigationLink) {
                 if ($link.Uri) {
-                  [void]$sb.AppendLine("* [$($link.LinkText)]($($link.Uri))")
+                  $lines += "* [$($link.LinkText)]($($link.Uri))"
                 } else {
-                  [void]$sb.AppendLine("* $($link.LinkText)")
+                  $lines += "* $($link.LinkText)"
                 }
               }
             }
 
             # Write the markdown file with LF line endings to avoid the ``r issue
-            $content = $sb.ToString() -replace "`r`n", "`n"
+            $content = $lines -join "`n"
             [System.IO.File]::WriteAllText($OutputPath, $content)
           }
 
@@ -243,60 +247,62 @@ jobs:
             Get-CommandDocumentation -CommandName $command.Name -OutputPath $outputFile
           }
 
-          # Create commands index page with StringBuilder for consistent formatting
-          $sb = [System.Text.StringBuilder]::new()
-          [void]$sb.AppendLine("---")
-          [void]$sb.AppendLine("layout: page")
-          [void]$sb.AppendLine("title: ActionableMessages Commands")
-          [void]$sb.AppendLine("permalink: /modules/actionablemessages/commands/")
-          [void]$sb.AppendLine("---")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("# ActionableMessages Commands")
-          [void]$sb.AppendLine("")
+          # Create commands index page with array joining for consistent formatting
+          $lines = @(
+            "---",
+            "layout: page",
+            "title: ActionableMessages Commands",
+            "permalink: /modules/actionablemessages/commands/",
+            "---",
+            "",
+            "# ActionableMessages Commands",
+            ""
+          )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            [void]$sb.AppendLine("* [``$($command.Name)``]($($command.Name)/)")
+            $lines += "* [``$($command.Name)``]($($command.Name)/)"
           }
 
           $commandsIndexPath = "$cmdDocsPath/index.md"
-          $commandsIndexContent = $sb.ToString() -replace "`r`n", "`n"
+          $commandsIndexContent = $lines -join "`n"
           [System.IO.File]::WriteAllText($commandsIndexPath, $commandsIndexContent)
 
-          # Create main index page with StringBuilder
-          $sb = [System.Text.StringBuilder]::new()
-          [void]$sb.AppendLine("---")
-          [void]$sb.AppendLine("layout: page")
-          [void]$sb.AppendLine("title: ActionableMessages PowerShell Module")
-          [void]$sb.AppendLine("permalink: /modules/actionablemessages/")
-          [void]$sb.AppendLine("---")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("# ActionableMessages PowerShell Module")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("A PowerShell module for creating Microsoft Actionable Messages.")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("## Installation")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("```powershell")
-          [void]$sb.AppendLine("Install-Module -Name ActionableMessages -Scope CurrentUser")
-          [void]$sb.AppendLine("```")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("## Quick Start")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("```powershell")
-          [void]$sb.AppendLine('$card = New-AMCard -ThemeColor "#0078D7"')
-          [void]$sb.AppendLine('Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")')
-          [void]$sb.AppendLine('$jsonCard = Export-AMCard -Card $card')
-          [void]$sb.AppendLine("```")
-          [void]$sb.AppendLine("")
-          [void]$sb.AppendLine("## Command Reference")
-          [void]$sb.AppendLine("")
+          # Create main index page with array joining
+          $lines = @(
+            "---",
+            "layout: page",
+            "title: ActionableMessages PowerShell Module",
+            "permalink: /modules/actionablemessages/",
+            "---",
+            "",
+            "# ActionableMessages PowerShell Module",
+            "",
+            "A PowerShell module for creating Microsoft Actionable Messages.",
+            "",
+            "## Installation",
+            "",
+            "```powershell",
+            "Install-Module -Name ActionableMessages -Scope CurrentUser",
+            "```",
+            "",
+            "## Quick Start",
+            "",
+            "```powershell",
+            '$card = New-AMCard -ThemeColor "#0078D7"',
+            'Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")',
+            '$jsonCard = Export-AMCard -Card $card',
+            "```",
+            "",
+            "## Command Reference",
+            ""
+          )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            [void]$sb.AppendLine("* [``$($command.Name)``](commands/$($command.Name)/)")
+            $lines += "* [``$($command.Name)``](commands/$($command.Name)/)"
           }
 
           $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = $sb.ToString() -replace "`r`n", "`n"
+          $mainIndexContent = $lines -join "`n"
           [System.IO.File]::WriteAllText($mainIndexPath, $mainIndexContent)
 
       - name: Commit documentation to GitHub Pages repo
