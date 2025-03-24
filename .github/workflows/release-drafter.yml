@@ -1,26 +1,47 @@
-name: Draft Release
+name: Release Management
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create official release'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  update-release-draft:
+  update-draft:
     runs-on: ubuntu-latest
     steps:
-      # Run release-drafter to determine version number
-      - name: Draft Release
+      # Always run release-drafter to keep the draft updated
+      - name: Update Draft Release
         id: release-drafter
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-releaser: true  # Don't create the release yet
+          disable-releaser: false  # Create/update the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release:
+    needs: update-draft
+    if: github.event_name == 'workflow_dispatch' && inputs.release == true
+    runs-on: ubuntu-latest
+    steps:
+      # Run release-drafter to get the latest version number
+      - name: Get Latest Version
+        id: release-drafter
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          disable-releaser: true  # Don't create the release here
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -111,7 +132,6 @@ jobs:
 
       # Commit the updated Module Version
       - name: Commit Changes
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -119,7 +139,7 @@ jobs:
           git commit -m "Bump version to v${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
           git push
 
-      # Create the GitHub release with notes from CHANGELOG.md
+      # Create the final GitHub release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -127,6 +147,6 @@ jobs:
           tag_name: v${{ steps.version.outputs.new_version }}
           body: ${{ steps.extract-release-notes.outputs.release_notes }}
           files: ActionableMessages-${{ steps.version.outputs.new_version }}.zip
-          draft: true
+          draft: false  # Create a published release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
