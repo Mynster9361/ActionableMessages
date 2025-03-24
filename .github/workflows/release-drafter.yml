@@ -85,51 +85,62 @@ jobs:
           if (Test-Path $changelogPath) {
             $existingContent = Get-Content -Path $changelogPath -Raw
 
-            # Check if the header already exists in the file
-            if ($existingContent -match "The format is based on \[Keep a Changelog\]") {
-              # Header exists, just add new release notes after the header
-              $headerEndIndex = $existingContent.IndexOf("## [")
-              if ($headerEndIndex -gt 0) {
-                $newContent = $existingContent.Substring(0, $headerEndIndex) + $releaseNotes + $existingContent.Substring($headerEndIndex)
-              } else {
-                # No existing versions yet
-                $newContent = $existingContent + $releaseNotes
-              }
+            # Check if this version already exists in the changelog
+            if ($existingContent -match "\#\# \[$version\]") {
+              Write-Host "Version $version already exists in the changelog. Skipping addition."
+              $newContent = $existingContent
             } else {
-              # No proper header, add it along with the new release
-              $newContent = $header + $releaseNotes + "`n`n" + $existingContent
+              # Check if the header already exists in the file
+              if ($existingContent -match "The format is based on \[Keep a Changelog\]") {
+                # Header exists, just add new release notes after the header
+                $headerEndIndex = $existingContent.IndexOf("## [")
+                if ($headerEndIndex -gt 0) {
+                  $newContent = $existingContent.Substring(0, $headerEndIndex) + $releaseNotes + $existingContent.Substring($headerEndIndex)
+                } else {
+                  # No existing versions yet
+                  $newContent = $existingContent + $releaseNotes
+                }
+              } else {
+                # No proper header, add it along with the new release
+                $newContent = $header + $releaseNotes + "`n`n" + $existingContent
+              }
             }
           } else {
             # Create new file with header and release
             $newContent = $header + $releaseNotes
           }
 
-          # Update version links at the bottom
-          if ($newContent -notmatch '\[Unreleased\]:') {
-            # Add version links if they don't exist
-            $repoUrl = "https://github.com/${{ github.repository }}"
-            $versionLinks = @"
+          # Update version links at the bottom only if we made changes
+          if (($existingContent -notmatch "\#\# \[$version\]") -or (-not (Test-Path $changelogPath))) {
+            if ($newContent -notmatch '\[Unreleased\]:') {
+              # Add version links if they don't exist
+              $repoUrl = "https://github.com/${{ github.repository }}"
+              $versionLinks = @"
 
-          [Unreleased]: $repoUrl/compare/$version...HEAD
-          [$version]: $repoUrl/releases/tag/v$version
-          "@
-            $newContent += $versionLinks
-          } else {
-            # Update existing version links
-            $currentUnreleasedLink = [regex]::Match($newContent, '\[Unreleased\]:(.*?)\n').Groups[1].Value.Trim()
-            $previousVersionMatch = [regex]::Match($currentUnreleasedLink, 'compare/(v?.*?)\.\.\.HEAD')
+            [Unreleased]: $repoUrl/compare/v$version...HEAD
+            [$version]: $repoUrl/releases/tag/v$version
+            "@
+              $newContent += $versionLinks
+            } else {
+              # Update existing version links
+              $currentUnreleasedLink = [regex]::Match($newContent, '\[Unreleased\]:(.*?)\n').Groups[1].Value.Trim()
+              $previousVersionMatch = [regex]::Match($currentUnreleasedLink, 'compare/(v?.*?)\.\.\.HEAD')
 
-            if ($previousVersionMatch.Success) {
-              $previousVersion = $previousVersionMatch.Groups[1].Value
+              if ($previousVersionMatch.Success) {
+                $previousVersion = $previousVersionMatch.Groups[1].Value
 
-              # Replace Unreleased link
-              $newContent = $newContent -replace '\[Unreleased\]:(.*?)\n', "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n"
+                # Don't update if the links already point to the current version
+                if ($previousVersion -ne "v$version") {
+                  # Replace Unreleased link
+                  $newContent = $newContent -replace '\[Unreleased\]:(.*?)\n', "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n"
 
-              # Add new version link if not already there
-              if ($newContent -notmatch "\[$version\]:") {
-                $versionLinkPattern = '\[Unreleased\]:(.*?)\n'
-                $versionLink = "[$version]: https://github.com/${{ github.repository }}/compare/$previousVersion...v$version`n"
-                $newContent = [regex]::Replace($newContent, $versionLinkPattern, "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n$versionLink")
+                  # Add new version link if not already there
+                  if ($newContent -notmatch "\[$version\]:") {
+                    $versionLinkPattern = '\[Unreleased\]:(.*?)\n'
+                    $versionLink = "[$version]: https://github.com/${{ github.repository }}/compare/$previousVersion...v$version`n"
+                    $newContent = [regex]::Replace($newContent, $versionLinkPattern, "[Unreleased]: https://github.com/${{ github.repository }}/compare/v$version...HEAD`n$versionLink")
+                  }
+                }
               }
             }
           }
