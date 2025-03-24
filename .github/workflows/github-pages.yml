@@ -115,6 +115,9 @@ jobs:
             # Get parameter information
             $parameters = Get-ParameterInfo $command
 
+            # Get the syntax first to avoid issues with nested function calls
+            $syntax = Get-CleanSyntax $command
+
             # Create front matter section
             $sb = [System.Text.StringBuilder]::new()
             [void]$sb.AppendLine("---")
@@ -131,7 +134,7 @@ jobs:
             [void]$sb.AppendLine("## SYNTAX")
             [void]$sb.AppendLine("")
             [void]$sb.AppendLine("```powershell")
-            [void]$sb.AppendLine($(Get-CleanSyntax $command))
+            [void]$sb.AppendLine($syntax)
             [void]$sb.AppendLine("```")
             [void]$sb.AppendLine("")
             [void]$sb.AppendLine("## DESCRIPTION")
