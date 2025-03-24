@@ -92,115 +92,73 @@ jobs:
             # Get parameter information
             $parameters = Get-ParameterInfo $command
 
-            # Create markdown content
-            $markdown = @"
-          ---
-          layout: page
-          title: $CommandName
-          permalink: /modules/actionablemessages/commands/$CommandName/
-          ---
-
-          # $CommandName
-
-          ## SYNOPSIS
-          $($help.Synopsis)
-
-          ## SYNTAX
-
-          ```powershell
-          $($command.Definition -replace '(?m)^\s+', '')
-          ```
-
-          ## DESCRIPTION
-          $($help.Description.Text)
-
-          ## EXAMPLES
-          "@
+            # Create markdown content using string concatenation instead of here-strings
+            $markdown = "---`r`n"
+            $markdown += "layout: page`r`n"
+            $markdown += "title: $CommandName`r`n"
+            $markdown += "permalink: /modules/actionablemessages/commands/$CommandName/`r`n"
+            $markdown += "---`r`n`r`n"
+            $markdown += "# $CommandName`r`n`r`n"
+            $markdown += "## SYNOPSIS`r`n$($help.Synopsis)`r`n`r`n"
+            $markdown += "## SYNTAX`r`n`r`n"
+            $markdown += "```powershell`r`n$($command.Definition -replace '(?m)^\s+', '')`r`n````r`n`r`n"
+            $markdown += "## DESCRIPTION`r`n$($help.Description.Text)`r`n`r`n"
+            $markdown += "## EXAMPLES`r`n"
 
             # Add examples
             $exampleNumber = 1
             foreach ($example in $examples) {
-              $markdown += @"
-
-          ### EXAMPLE $exampleNumber
-          ```powershell
-          $($example.Code)
-          ```
-
-          $($example.Remarks)
-          "@
+              $markdown += "`r`n### EXAMPLE $exampleNumber`r`n"
+              $markdown += "```powershell`r`n$($example.Code)`r`n````r`n`r`n"
+              $markdown += "$($example.Remarks)`r`n"
               $exampleNumber++
             }
 
             # Add parameters section
-            $markdown += @"
-
-          ## PARAMETERS
-          "@
+            $markdown += "`r`n## PARAMETERS`r`n"
 
             foreach ($parameter in $parameters) {
               $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
-              $markdown += @"
-
-          ### -$($parameter.Name)
-          $($paramHelp.Description.Text)
-
-          ```yaml
-          Type: $($parameter.Type)
-          Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })
-          Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })
-
-          Required: $($parameter.Required)
-          Position: $($parameter.Position)
-          Default value: $($parameter.DefaultValue)
-          Accept pipeline input: $($parameter.PipelineInput)
-          Accept wildcard characters: $($parameter.AcceptWildcards)
-          ```
-          "@
+              $markdown += "`r`n### -$($parameter.Name)`r`n"
+              $markdown += "$($paramHelp.Description.Text)`r`n`r`n"
+              $markdown += "```yaml`r`n"
+              $markdown += "Type: $($parameter.Type)`r`n"
+              $markdown += "Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })`r`n"
+              $markdown += "Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })`r`n`r`n"
+              $markdown += "Required: $($parameter.Required)`r`n"
+              $markdown += "Position: $($parameter.Position)`r`n"
+              $markdown += "Default value: $($parameter.DefaultValue)`r`n"
+              $markdown += "Accept pipeline input: $($parameter.PipelineInput)`r`n"
+              $markdown += "Accept wildcard characters: $($parameter.AcceptWildcards)`r`n"
+              $markdown += "````r`n"
             }
 
             # Add Common Parameters section
-            $markdown += @"
-
-          ### CommonParameters
-          This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters).
-          "@
+            $markdown += "`r`n### CommonParameters`r`n"
+            $markdown += "This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters).`r`n"
 
             # Add inputs and outputs sections
-            $markdown += @"
+            $markdown += "`r`n## INPUTS`r`n"
+            $markdown += "### $($help.InputTypes.InputType.Type.Name)`r`n"
+            $markdown += "$($help.InputTypes.InputType.Description.Text)`r`n"
 
-          ## INPUTS
-          ### $($help.InputTypes.InputType.Type.Name)
-          $($help.InputTypes.InputType.Description.Text)
-
-          ## OUTPUTS
-          ### $($help.ReturnValues.ReturnValue.Type.Name)
-          $($help.ReturnValues.ReturnValue.Description.Text)
-          "@
+            $markdown += "`r`n## OUTPUTS`r`n"
+            $markdown += "### $($help.ReturnValues.ReturnValue.Type.Name)`r`n"
+            $markdown += "$($help.ReturnValues.ReturnValue.Description.Text)`r`n"
 
             # Add notes and links
             if ($help.AlertSet.Alert) {
-              $markdown += @"
-
-          ## NOTES
-          $($help.AlertSet.Alert.Text)
-          "@
+              $markdown += "`r`n## NOTES`r`n"
+              $markdown += "$($help.AlertSet.Alert.Text)`r`n"
             }
 
             if ($help.RelatedLinks.NavigationLink) {
-              $markdown += @"
-
-          ## RELATED LINKS
-          "@
+              $markdown += "`r`n## RELATED LINKS`r`n"
               foreach ($link in $help.RelatedLinks.NavigationLink) {
                 if ($link.Uri) {
-                  $markdown += @"
-          [$($link.LinkText)]($($link.Uri))
-          "@
+                  $markdown += "[$($link.LinkText)]($($link.Uri))`r`n"
                 } else {
-                  $markdown += @"
-          [$($link.LinkText)]
-          "@
+                  $markdown += "[$($link.LinkText)]`r`n"
                 }
               }
             }
@@ -218,50 +176,42 @@ jobs:
 
           # Create commands index page
           $commandsIndexPath = "$cmdDocsPath/index.md"
-          $commandsIndexContent = @"
-          ---
-          layout: page
-          title: ActionableMessages Commands
-          permalink: /modules/actionablemessages/commands/
-          ---
-
-          # ActionableMessages Commands
-
-          $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`]($($_.Name)/)" }) -join "`r`n")
-          "@
+          $commandsIndexContent = "---`r`n"
+          $commandsIndexContent += "layout: page`r`n"
+          $commandsIndexContent += "title: ActionableMessages Commands`r`n"
+          $commandsIndexContent += "permalink: /modules/actionablemessages/commands/`r`n"
+          $commandsIndexContent += "---`r`n`r`n"
+          $commandsIndexContent += "# ActionableMessages Commands`r`n`r`n"
+          $commandLinks = $commands | Sort-Object -Property Name | ForEach-Object {
+            "- [``$($_.Name)``]($($_.Name)/)"
+          }
+          $commandsIndexContent += $commandLinks -join "`r`n"
           Set-Content -Path $commandsIndexPath -Value $commandsIndexContent -Encoding UTF8
 
           # Create main index page with Jekyll front matter
           $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = @"
-          ---
-          layout: page
-          title: ActionableMessages PowerShell Module
-          permalink: /modules/actionablemessages/
-          ---
-
-          # ActionableMessages PowerShell Module
-
-          A PowerShell module for creating Microsoft Actionable Messages.
-
-          ## Installation
-
-          ```powershell
-          Install-Module -Name ActionableMessages -Scope CurrentUser
-          ```
-
-          ## Quick Start
-
-          ```powershell
-          $card = New-AMCard -ThemeColor "#0078D7"
-          Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
-          $jsonCard = Export-AMCard -Card $card
-          ```
-
-          ## Command Reference
-
-          $(($commands | Sort-Object -Property Name | ForEach-Object { "- [`$($_.Name)`](commands/$($_.Name)/)" }) -join "`r`n")
-          "@
+          $mainIndexContent = "---`r`n"
+          $mainIndexContent += "layout: page`r`n"
+          $mainIndexContent += "title: ActionableMessages PowerShell Module`r`n"
+          $mainIndexContent += "permalink: /modules/actionablemessages/`r`n"
+          $mainIndexContent += "---`r`n`r`n"
+          $mainIndexContent += "# ActionableMessages PowerShell Module`r`n`r`n"
+          $mainIndexContent += "A PowerShell module for creating Microsoft Actionable Messages.`r`n`r`n"
+          $mainIndexContent += "## Installation`r`n`r`n"
+          $mainIndexContent += "```powershell`r`n"
+          $mainIndexContent += "Install-Module -Name ActionableMessages -Scope CurrentUser`r`n"
+          $mainIndexContent += "````r`n`r`n"
+          $mainIndexContent += "## Quick Start`r`n`r`n"
+          $mainIndexContent += "```powershell`r`n"
+          $mainIndexContent += "`$card = New-AMCard -ThemeColor `"#0078D7`"`r`n"
+          $mainIndexContent += "Add-AMElement -InputObject `$card -Element (New-AMTextBlock -Text `"Hello, World!`")`r`n"
+          $mainIndexContent += "`$jsonCard = Export-AMCard -Card `$card`r`n"
+          $mainIndexContent += "````r`n`r`n"
+          $mainIndexContent += "## Command Reference`r`n`r`n"
+          $cmdLinks = $commands | Sort-Object -Property Name | ForEach-Object {
+            "- [``$($_.Name)``](commands/$($_.Name)/)"
+          }
+          $mainIndexContent += $cmdLinks -join "`r`n"
           Set-Content -Path $mainIndexPath -Value $mainIndexContent -Encoding UTF8
 
       - name: Commit documentation to GitHub Pages repo
