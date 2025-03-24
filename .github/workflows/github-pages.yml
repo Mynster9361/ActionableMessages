@@ -95,7 +95,7 @@ jobs:
           Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")
           $jsonCard = Export-AMCard -Card $card
           ```
-          ## Command Reference
+          ## Command Reference`r`n`r`n
           '@
           $cmdLinks = Get-Command -Module ActionableMessages | ForEach-Object {
             "- [``$($_.Name)``](commands/$($_.Name)/)"
