@@ -1,5 +1,5 @@
 ## [1.0.2] - [2025-03-24]
-[
+
 ### Added
 - Changelogmanagement module
 
@@ -9,14 +9,14 @@
 ### Fixed
 - Github Workflows
 
-]
+
 ## [1.0.1] - [2025-03-19]
-[
+
 ### Fixed
 - PSGallery Links to github repo
-]
+
 ## [1.0.0] - [2025-03-18]
-[
+
 ### Added
 - Initial release
 - New-AMCard cmdlet
@@ -44,4 +44,3 @@
 - New-AMToggleInput cmdlet
 - New-AMChoiceSetInput cmdlet
 
-]

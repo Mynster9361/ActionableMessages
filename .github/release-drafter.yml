@@ -40,6 +40,6 @@ version-resolver:
 template: |
   ## [$RESOLVED_VERSION] - [$RELEASE_DATE]
 
-  [$CHANGES]
+  $CHANGES
 
   **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

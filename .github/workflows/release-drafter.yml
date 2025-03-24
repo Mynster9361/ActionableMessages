@@ -81,15 +81,19 @@ jobs:
           if (Test-Path $changelogPath) {
             $changelogContent = Get-Content -Path $changelogPath -Raw
 
-            # Find the section for the current version
-            $versionHeader = "## [$version]"
+            # Find the section for the current version - account for date format [YYYY-MM-DD]
+            $versionHeader = "## \[$version\]\s*-\s*\[\d{4}-\d{2}-\d{2}\]"
             $nextVersionPattern = "## \["
 
             # Match the current version's section
             $match = [regex]::Match($changelogContent, "($versionHeader.*?)(?=$nextVersionPattern|\z)", [System.Text.RegularExpressions.RegexOptions]::Singleline)
 
             if ($match.Success) {
-              $releaseNotes = $match.Groups[1].Value.Trim()
+              $releaseNotesSection = $match.Groups[1].Value.Trim()
+
+              # Format the release notes - add full changelog link
+              $releaseNotes = $releaseNotesSection + "`n`n**Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-drafter.outputs.previous_tag }}...v$version"
+
               # Escape newlines for GitHub Actions output
               $releaseNotes = $releaseNotes -replace "`n", "%0A"
               echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
