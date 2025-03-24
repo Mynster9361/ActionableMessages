@@ -72,7 +72,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Custom step to fetch commits since the last release date
+      # Custom step to fetch commits since the last release date - fixed query parameter
       - name: Generate Commits Since Last Date
         id: custom-changes
         shell: pwsh
@@ -138,10 +138,14 @@ jobs:
               }
             }
 
-            echo "changes=$changes" >> $env:GITHUB_OUTPUT
+            # Properly format multiline output for GitHub Actions
+            $changes = $changes -replace "`n", "%0A"
+            echo "changes<<EOF" >> $env:GITHUB_OUTPUT
+            echo "$changes" >> $env:GITHUB_OUTPUT
+            echo "EOF" >> $env:GITHUB_OUTPUT
           } else {
             echo "No last release date found, using release-drafter's changes"
-            echo "changes=${{ steps.release-drafter-info.outputs.body }}" >> $env:GITHUB_OUTPUT
+            echo "changes=${{ steps.release-drafter.outputs.body }}" >> $env:GITHUB_OUTPUT
           }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
