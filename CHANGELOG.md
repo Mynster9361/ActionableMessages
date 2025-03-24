@@ -1,4 +1,15 @@
 # Changelog
+
+## [v1.0.2] - 2025-03-24
+
+## Changes
+
+* No changes
+
+**Full Changelog**: https://github.com/Mynster9361/ActionableMessages/compare/v1.0.1...v1.0.2
+
+
+# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
