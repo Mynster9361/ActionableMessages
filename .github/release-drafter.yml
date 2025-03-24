@@ -32,7 +32,7 @@ include-commits: true
 commit-template: '- $TITLE'
 
 # Define how individual changes appear in the release notes
-change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-template: '- $TITLE'
 change-title-escapes: '\<*_&'
 
 # How version numbers should be determined based on labels

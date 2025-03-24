@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
   workflow_dispatch:
     inputs:
       release:
@@ -20,36 +22,163 @@ jobs:
   update-draft:
     runs-on: ubuntu-latest
     steps:
-      # Always run release-drafter to keep the draft updated
+      # Check out the code to access CHANGELOG.md
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Extract the last release date from CHANGELOG.md
+      - name: Extract Last Release Date
+        id: extract-date
+        shell: pwsh
+        run: |
+          $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
+          if (Test-Path $changelogPath) {
+            $content = Get-Content -Path $changelogPath -Raw
+            $match = [regex]::Match($content, '## \[[0-9.]+\] - \[([0-9]{4}-[0-9]{2}-[0-9]{2})\]')
+            if ($match.Success) {
+              $lastReleaseDate = $match.Groups[1].Value
+              echo "last_release_date=$lastReleaseDate" >> $env:GITHUB_OUTPUT
+              echo "Found last release date: $lastReleaseDate"
+            } else {
+              echo "No release date found in CHANGELOG.md"
+            }
+          } else {
+            echo "CHANGELOG.md not found"
+          }
+
+      # Run release-drafter with the date context
       - name: Update Draft Release
         id: release-drafter
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-releaser: false  # Create/update the draft release
+          disable-releaser: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # We can't directly pass the date to release-drafter but
+          # the date helps for informational purposes in logs
+          LAST_RELEASE_DATE: ${{ steps.extract-date.outputs.last_release_date }}
 
   create-release:
     needs: update-draft
     if: github.event_name == 'workflow_dispatch' && inputs.release == true
     runs-on: ubuntu-latest
     steps:
-      # Run release-drafter to get the latest version number
+      # Checkout the code
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Extract the last release date from CHANGELOG.md
+      - name: Extract Last Release Date
+        id: extract-date
+        shell: pwsh
+        run: |
+          $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
+          if (Test-Path $changelogPath) {
+            $content = Get-Content -Path $changelogPath -Raw
+            $match = [regex]::Match($content, '## \[[0-9.]+\] - \[([0-9]{4}-[0-9]{2}-[0-9]{2})\]')
+            if ($match.Success) {
+              $lastReleaseDate = $match.Groups[1].Value
+              echo "last_release_date=$lastReleaseDate" >> $env:GITHUB_OUTPUT
+              echo "Found last release date: $lastReleaseDate"
+            } else {
+              echo "No release date found in CHANGELOG.md"
+            }
+          } else {
+            echo "CHANGELOG.md not found"
+          }
+
+      # Get latest version from release-drafter
       - name: Get Latest Version
         id: release-drafter
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-releaser: true  # Don't create the release here
+          disable-releaser: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Checkout code to update module version and create assets
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # Custom step to fetch commits since the last release date
+      - name: Generate Commits Since Last Date
+        id: custom-changes
+        shell: pwsh
+        run: |
+          $lastReleaseDate = "${{ steps.extract-date.outputs.last_release_date }}"
+          if (-not [string]::IsNullOrEmpty($lastReleaseDate)) {
+            echo "Fetching commits since $lastReleaseDate"
 
+            # Format for GitHub API query (needs ISO format with time)
+            $dateIso = [DateTime]::Parse($lastReleaseDate).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+            # Get commits since date
+            $commits = gh api repos/${{ github.repository }}/commits --jq ".[] | {sha: .sha, message: .commit.message, date: .commit.author.date, author: .author.login}" --since "$dateIso"
+
+            # Process and categorize commits
+            $addedItems = @()
+            $changedItems = @()
+            $fixedItems = @()
+            $otherItems = @()
+
+            $commits | ConvertFrom-Json | ForEach-Object {
+              $message = $_.message -split "`n" | Select-Object -First 1
+              $item = "- $message"
+
+              if ($message -match '^(feat|feature|add|added):') {
+                $addedItems += $item
+              } elseif ($message -match '^(change|changed|refactor):') {
+                $changedItems += $item
+              } elseif ($message -match '^(fix|fixed|bug):') {
+                $fixedItems += $item
+              } else {
+                $otherItems += $item
+              }
+            }
+
+            # Build the changes section
+            $changes = ""
+
+            if ($addedItems.Count -gt 0) {
+              $changes += "`n### Added`n" + ($addedItems -join "`n")
+            }
+
+            if ($changedItems.Count -gt 0) {
+              $changes += "`n### Changed`n" + ($changedItems -join "`n")
+            }
+
+            if ($fixedItems.Count -gt 0) {
+              $changes += "`n### Fixed`n" + ($fixedItems -join "`n")
+            }
+
+            if ($otherItems.Count -gt 0) {
+              $changes += "`n### Other`n" + ($otherItems -join "`n")
+            }
+
+            # If no categorized changes, use everything under "Other"
+            if ($changes -eq "") {
+              $allCommits = $commits | ConvertFrom-Json | ForEach-Object {
+                $message = $_.message -split "`n" | Select-Object -First 1
+                "- $message"
+              }
+              if ($allCommits.Count -gt 0) {
+                $changes = "`n### Other`n" + ($allCommits -join "`n")
+              }
+            }
+
+            # Escape for GitHub Actions output
+            $changes = $changes -replace "`n", "%0A"
+            echo "changes<<EOF" >> $env:GITHUB_OUTPUT
+            echo "$changes" >> $env:GITHUB_OUTPUT
+            echo "EOF" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "No last release date found, using release-drafter's changes"
+            echo "changes=${{ steps.release-drafter.outputs.body }}" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Update module version
       - name: Update Module Version
         id: version
         shell: pwsh
@@ -70,53 +199,7 @@ jobs:
           Update-ModuleManifest -Path $ManifestPath -ModuleVersion $NewVersion
           echo "new_version=$NewVersion" >> $env:GITHUB_OUTPUT
 
-      # Extract release notes from CHANGELOG.md
-      - name: Extract Release Notes
-        id: extract-release-notes
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.new_version }}"
-          $changelogPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "CHANGELOG.md"
-
-          if (Test-Path $changelogPath) {
-            $changelogContent = Get-Content -Path $changelogPath -Raw
-
-            # Find the section for the current version - account for date format [YYYY-MM-DD]
-            $versionHeader = "## \[$version\]\s*-\s*\[\d{4}-\d{2}-\d{2}\]"
-            $nextVersionPattern = "## \["
-
-            # Match the current version's section
-            $match = [regex]::Match($changelogContent, "($versionHeader.*?)(?=$nextVersionPattern|\z)", [System.Text.RegularExpressions.RegexOptions]::Singleline)
-
-            if ($match.Success) {
-              $releaseNotesSection = $match.Groups[1].Value.Trim()
-
-              # Format the release notes - add full changelog link
-              $releaseNotes = $releaseNotesSection + "`n`n**Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-drafter.outputs.previous_tag }}...v$version"
-
-              # Escape newlines for GitHub Actions output
-              $releaseNotes = $releaseNotes -replace "`n", "%0A"
-              echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
-              echo "$releaseNotes" >> $env:GITHUB_OUTPUT
-              echo "EOF" >> $env:GITHUB_OUTPUT
-              echo "Found release notes for version $version"
-            } else {
-              echo "No release notes found for version $version in CHANGELOG.md"
-              # Fall back to release-drafter's generated notes
-              $releaseNotes = "${{ steps.release-drafter.outputs.body }}" -replace "`n", "%0A"
-              echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
-              echo "$releaseNotes" >> $env:GITHUB_OUTPUT
-              echo "EOF" >> $env:GITHUB_OUTPUT
-            }
-          } else {
-            echo "CHANGELOG.md not found, using release-drafter's generated notes"
-            $releaseNotes = "${{ steps.release-drafter.outputs.body }}" -replace "`n", "%0A"
-            echo "release_notes<<EOF" >> $env:GITHUB_OUTPUT
-            echo "$releaseNotes" >> $env:GITHUB_OUTPUT
-            echo "EOF" >> $env:GITHUB_OUTPUT
-          }
-
-      # Create and package a .zip file for the release
+      # Package module
       - name: Package Module
         shell: pwsh
         run: |
@@ -149,8 +232,12 @@ jobs:
         with:
           name: v${{ steps.version.outputs.new_version }}
           tag_name: v${{ steps.version.outputs.new_version }}
-          body: ${{ steps.extract-release-notes.outputs.release_notes }}
+          body: |
+            ## [v${{ steps.version.outputs.new_version }}] - [${{ steps.extract-date.outputs.last_release_date }}]
+            ${{ steps.custom-changes.outputs.changes }}
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-drafter.outputs.previous_tag }}...v${{ steps.version.outputs.new_version }}
           files: ActionableMessages-${{ steps.version.outputs.new_version }}.zip
-          draft: false  # Create a published release
+          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
