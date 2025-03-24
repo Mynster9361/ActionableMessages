@@ -41,7 +41,8 @@ jobs:
 
       - name: Generate docs
         shell: pwsh
-        run: |
+        # Using heredoc syntax for better PowerShell multiline handling
+        run: |-
           # Import module from ActionableMessages repo
           Import-Module ./actionable-messages/ActionableMessages.psd1 -Force
 
@@ -104,11 +105,14 @@ jobs:
             $help = Get-Help $CommandName -Full
 
             # Get command examples
-            $examples = $help.Examples.Example | ForEach-Object {
-              [PSCustomObject]@{
-                Title = $_.Title.Replace("--------------------------  ", "").Trim()
-                Code = $_.Code.Trim()
-                Remarks = $_.Remarks.Text.Trim()
+            $examples = @()
+            if ($help.Examples.Example) {
+              foreach ($ex in $help.Examples.Example) {
+                $examples += [PSCustomObject]@{
+                  Title = $ex.Title.Replace("--------------------------  ", "").Trim()
+                  Code = $ex.Code.Trim()
+                  Remarks = $ex.Remarks.Text.Trim()
+                }
               }
             }
 
@@ -122,121 +126,125 @@ jobs:
             $synopsis = if ($help.Synopsis) { $help.Synopsis.Trim() } else { "No synopsis available." }
             $description = if ($help.Description.Text) { $help.Description.Text.Trim() } else { "No description available." }
 
-            # Use string concatenation instead of StringBuilder to avoid parsing issues
-            $lines = @()
-            $lines += "---"
-            $lines += "layout: page"
-            $lines += "title: $CommandName"
-            $lines += "permalink: /modules/actionablemessages/commands/$CommandName/"
-            $lines += "---"
-            $lines += ""
-            $lines += "# $CommandName"
-            $lines += ""
-            $lines += "## SYNOPSIS"
-            $lines += $synopsis
-            $lines += ""
-            $lines += "## SYNTAX"
-            $lines += ""
-            $lines += "```powershell"
-            $lines += $syntax
-            $lines += "```"
-            $lines += ""
-            $lines += "## DESCRIPTION"
-            $lines += $description
-            $lines += ""
-            $lines += "## EXAMPLES"
+            # Use string array to build content
+            $content = @()
+            $content += "---"
+            $content += "layout: page"
+            $content += "title: $CommandName"
+            $content += "permalink: /modules/actionablemessages/commands/$CommandName/"
+            $content += "---"
+            $content += ""
+            $content += "# $CommandName"
+            $content += ""
+            $content += "## SYNOPSIS"
+            $content += $synopsis
+            $content += ""
+            $content += "## SYNTAX"
+            $content += ""
+            $content += "```powershell"
+            $content += $syntax
+            $content += "```"
+            $content += ""
+            $content += "## DESCRIPTION"
+            $content += $description
+            $content += ""
+            $content += "## EXAMPLES"
 
             # Add examples
             $exampleNumber = 1
             foreach ($example in $examples) {
-              $lines += ""
-              $lines += "### EXAMPLE $exampleNumber"
-              $lines += "```powershell"
-              $lines += $example.Code
-              $lines += "```"
-              $lines += ""
+              $content += ""
+              $content += "### EXAMPLE $exampleNumber"
+              $content += "```powershell"
+              $content += $example.Code
+              $content += "```"
+              $content += ""
               if ($example.Remarks) {
-                $lines += $example.Remarks
-                $lines += ""
+                $content += $example.Remarks
+                $content += ""
               }
               $exampleNumber++
             }
 
             # Add parameters section
-            $lines += "## PARAMETERS"
+            $content += "## PARAMETERS"
 
             # First add the regular parameters (non-common)
-            foreach ($parameter in $parameters | Where-Object { $_.Name -notmatch '^(Debug|ErrorAction|ErrorVariable|InformationAction|InformationVariable|OutBuffer|OutVariable|PipelineVariable|ProgressAction|Verbose|WarningAction|WarningVariable)$' }) {
+            $commonParams = @('Debug', 'ErrorAction', 'ErrorVariable', 'InformationAction', 'InformationVariable', 'OutBuffer', 'OutVariable', 'PipelineVariable', 'ProgressAction', 'Verbose', 'WarningAction', 'WarningVariable')
+            $regularParams = $parameters | Where-Object { $commonParams -notcontains $_.Name }
+
+            foreach ($parameter in $regularParams) {
               $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
-              $lines += ""
-              $lines += "### -$($parameter.Name)"
+              $content += ""
+              $content += "### -$($parameter.Name)"
               if ($paramHelp.Description.Text) {
-                $lines += $paramHelp.Description.Text
-                $lines += ""
+                $content += $paramHelp.Description.Text
+                $content += ""
               }
-              $lines += "```yaml"
-              $lines += "Type: $($parameter.Type)"
-              $lines += "Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })"
-              $lines += "Aliases: $(if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" })"
-              $lines += ""
-              $lines += "Required: $($parameter.Required)"
-              $lines += "Position: $($parameter.Position)"
-              $lines += "Default value: $($parameter.DefaultValue)"
-              $lines += "Accept pipeline input: $($parameter.PipelineInput)"
-              $lines += "Accept wildcard characters: $($parameter.AcceptWildcards)"
-              $lines += "```"
+              $content += "```yaml"
+              $content += "Type: $($parameter.Type)"
+              $parameterSetName = if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" }
+              $content += "Parameter Sets: $parameterSetName"
+              $aliases = if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" }
+              $content += "Aliases: $aliases"
+              $content += ""
+              $content += "Required: $($parameter.Required)"
+              $content += "Position: $($parameter.Position)"
+              $content += "Default value: $($parameter.DefaultValue)"
+              $content += "Accept pipeline input: $($parameter.PipelineInput)"
+              $content += "Accept wildcard characters: $($parameter.AcceptWildcards)"
+              $content += "```"
             }
 
             # Add Common Parameters section
-            $lines += ""
-            $lines += "### CommonParameters"
-            $lines += "This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters)."
+            $content += ""
+            $content += "### CommonParameters"
+            $content += "This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters)."
 
             # Add inputs and outputs sections
-            $lines += ""
-            $lines += "## INPUTS"
+            $content += ""
+            $content += "## INPUTS"
             if ($help.InputTypes.InputType.Type.Name) {
-              $lines += "### $($help.InputTypes.InputType.Type.Name)"
+              $content += "### $($help.InputTypes.InputType.Type.Name)"
               if ($help.InputTypes.InputType.Description.Text) {
-                $lines += $help.InputTypes.InputType.Description.Text
+                $content += $help.InputTypes.InputType.Description.Text
               }
             } else {
-              $lines += "### None"
+              $content += "### None"
             }
 
-            $lines += ""
-            $lines += "## OUTPUTS"
+            $content += ""
+            $content += "## OUTPUTS"
             if ($help.ReturnValues.ReturnValue.Type.Name) {
-              $lines += "### $($help.ReturnValues.ReturnValue.Type.Name)"
+              $content += "### $($help.ReturnValues.ReturnValue.Type.Name)"
               if ($help.ReturnValues.ReturnValue.Description.Text) {
-                $lines += $help.ReturnValues.ReturnValue.Description.Text
+                $content += $help.ReturnValues.ReturnValue.Description.Text
               }
             } else {
-              $lines += "### None"
+              $content += "### None"
             }
 
             # Add notes and links
             if ($help.AlertSet.Alert) {
-              $lines += ""
-              $lines += "## NOTES"
-              $lines += $help.AlertSet.Alert.Text
+              $content += ""
+              $content += "## NOTES"
+              $content += $help.AlertSet.Alert.Text
             }
 
             if ($help.RelatedLinks.NavigationLink) {
-              $lines += ""
-              $lines += "## RELATED LINKS"
+              $content += ""
+              $content += "## RELATED LINKS"
               foreach ($link in $help.RelatedLinks.NavigationLink) {
                 if ($link.Uri) {
-                  $lines += "* [$($link.LinkText)]($($link.Uri))"
+                  $content += "* [$($link.LinkText)]($($link.Uri))"
                 } else {
-                  $lines += "* $($link.LinkText)"
+                  $content += "* $($link.LinkText)"
                 }
               }
             }
 
-            # Write the markdown file with LF line endings to avoid the ``r issue
-            $content = $lines -join "`n"
-            [System.IO.File]::WriteAllText($OutputPath, $content)
+            # Join with LF and write to file
+            [System.IO.File]::WriteAllText($OutputPath, ($content -join "`n"))
           }
 
           # Generate documentation for each command in the module
@@ -247,8 +255,8 @@ jobs:
             Get-CommandDocumentation -CommandName $command.Name -OutputPath $outputFile
           }
 
-          # Create commands index page with array joining for consistent formatting
-          $lines = @(
+          # Create commands index page
+          $content = @(
             "---",
             "layout: page",
             "title: ActionableMessages Commands",
@@ -260,15 +268,14 @@ jobs:
           )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            $lines += "* [``$($command.Name)``]($($command.Name)/)"
+            $content += "* [``$($command.Name)``]($($command.Name)/)"
           }
 
           $commandsIndexPath = "$cmdDocsPath/index.md"
-          $commandsIndexContent = $lines -join "`n"
-          [System.IO.File]::WriteAllText($commandsIndexPath, $commandsIndexContent)
+          [System.IO.File]::WriteAllText($commandsIndexPath, ($content -join "`n"))
 
-          # Create main index page with array joining
-          $lines = @(
+          # Create main index page
+          $content = @(
             "---",
             "layout: page",
             "title: ActionableMessages PowerShell Module",
@@ -298,12 +305,11 @@ jobs:
           )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            $lines += "* [``$($command.Name)``](commands/$($command.Name)/)"
+            $content += "* [``$($command.Name)``](commands/$($command.Name)/)"
           }
 
           $mainIndexPath = "$targetDir/index.md"
-          $mainIndexContent = $lines -join "`n"
-          [System.IO.File]::WriteAllText($mainIndexPath, $mainIndexContent)
+          [System.IO.File]::WriteAllText($mainIndexPath, ($content -join "`n"))
 
       - name: Commit documentation to GitHub Pages repo
         run: |
