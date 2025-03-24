@@ -39,26 +39,27 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module -Name PlatyPS -Force
 
-      - name: Create documentation script
-        shell: bash
-        run: |
-          cat > generate-docs.ps1 << 'EOL'
+      - name: Generate docs
+        shell: pwsh
+        # Using heredoc syntax for better PowerShell multiline handling
+        run: |-
           # Import module from ActionableMessages repo
-          Import-Module ./actionable-messages/ActionableMessages.psd1 -Force
+          Import-Module ActionableMessages
 
           # Create module collection directory in GitHub Pages repo
-          $targetDir = "./github-pages/_powershell_modules/actionablemessages"
+          $targetDir = "./actionablemessages"
           New-Item -ItemType Directory -Path $targetDir -Force
           $cmdDocsPath = "$targetDir/commands"
           New-Item -ItemType Directory -Path $cmdDocsPath -Force
 
           function Convert-TypeName($TypeName) {
-            # Convert full .NET type names to simpler display versions
-            $TypeName = $TypeName -replace "System\.", ""
-            return $TypeName
+          # Convert full .NET type names to simpler display versions
+          $TypeName = $TypeName -replace "System\.", ""
+          return $TypeName
           }
 
           function Get-ParameterInfo($Command) {
+
             $info = @()
             foreach ($parameter in $Command.Parameters.Keys) {
               $parameterInfo = $Command.Parameters[$parameter]
@@ -68,8 +69,12 @@ jobs:
                 Required = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).Mandatory
                 Position = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).Position
                 PipelineInput = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipeline -or
-                              $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipelineByPropertyName
-                DefaultValue = if ($parameterInfo.DefaultValue -ne $null -and $parameterInfo.DefaultValue.ToString() -ne "System.Object") { $parameterInfo.DefaultValue } else { "None" }
+                  $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromPipelineByPropertyName
+                DefaultValue = if ($parameterInfo.DefaultValue -ne $null -and $parameterInfo.DefaultValue.ToString() -ne "System.Object") {
+                  $parameterInfo.DefaultValue
+                } else {
+                  "None"
+                }
                 AcceptWildcards = $parameterInfo.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]}).ValueFromRemainingArguments
               }
               $info += $paramObj
@@ -104,17 +109,24 @@ jobs:
             $command = Get-Command $CommandName
             $help = Get-Help $CommandName -Full
 
-            # Get command examples
-            $examples = @()
-            if ($help.Examples.Example) {
-              foreach ($ex in $help.Examples.Example) {
-                $examples += [PSCustomObject]@{
-                  Title = $ex.Title.Replace("--------------------------  ", "").Trim()
-                  Code = $ex.Code.Trim()
-                  Remarks = $ex.Remarks.Text.Trim()
-                }
+              # Get command examples
+              $examples = @()
+              if ($help.Examples.Example) {
+                  foreach ($ex in $help.Examples.Example) {
+                      # Handle remarks properly
+                      $remarksText = if ($ex.Remarks.Text -is [System.Array]) {
+                          $ex.Remarks.Text -join "`n"  # Join array elements with newlines
+                      } else {
+                          $ex.Remarks.Text.Trim()
+                      }
+
+                      $examples += [PSCustomObject]@{
+                          Title = $ex.Title.Replace("--------------------------  ", "").Trim()
+                          Code = $ex.Code.Trim()
+                          Remarks = $remarksText
+                      }
+                  }
               }
-            }
 
             # Get parameter information
             $parameters = Get-ParameterInfo $command
@@ -123,8 +135,16 @@ jobs:
             $syntax = Get-CleanSyntax $command
 
             # Pre-process help text to avoid issues with special characters
-            $synopsis = if ($help.Synopsis) { $help.Synopsis.Trim() } else { "No synopsis available." }
-            $description = if ($help.Description.Text) { $help.Description.Text.Trim() } else { "No description available." }
+            $synopsis = if ($help.Synopsis) {
+              $help.Synopsis.Trim()
+            } else {
+              "No synopsis available."
+            }
+            $description = if ($help.Description.Text) {
+              $help.Description.Text.Trim()
+            } else {
+              "No description available."
+              }
 
             # Use string array to build content
             $content = @()
@@ -141,30 +161,36 @@ jobs:
             $content += ""
             $content += "## SYNTAX"
             $content += ""
-            $content += "```powershell"
+            $content += '```powershell'
             $content += $syntax
-            $content += "```"
+            $content += '```'
             $content += ""
             $content += "## DESCRIPTION"
             $content += $description
             $content += ""
             $content += "## EXAMPLES"
 
-            # Add examples
-            $exampleNumber = 1
-            foreach ($example in $examples) {
-              $content += ""
-              $content += "### EXAMPLE $exampleNumber"
-              $content += "```powershell"
-              $content += $example.Code
-              $content += "```"
-              $content += ""
-              if ($example.Remarks) {
-                $content += $example.Remarks
-                $content += ""
+              # Add examples
+              $exampleNumber = 1
+              foreach ($example in $examples) {
+                  $content += ""
+                  $content += "### EXAMPLE $exampleNumber"
+                  $content += '```powershell'
+                  $content += $example.Code
+                  $content += '```'
+                  $content += ""
+                  if ($example.Remarks) {
+                      # Check if remarks contain actual content
+                      if (-not [string]::IsNullOrWhiteSpace($example.Remarks)) {
+                          # Add a single code block for all remarks content
+                          $content += "#### Example explanation"
+                          $content += '```powershell'
+                          $content += $example.Remarks.Trim()
+                          $content += '```'
+                      }
+                  }
+                  $exampleNumber++
               }
-              $exampleNumber++
-            }
 
             # Add parameters section
             $content += "## PARAMETERS"
@@ -181,11 +207,19 @@ jobs:
                 $content += $paramHelp.Description.Text
                 $content += ""
               }
-              $content += "```yaml"
+              $content += '```yaml'
               $content += "Type: $($parameter.Type)"
-              $parameterSetName = if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" }
+              $parameterSetName = if ($paramHelp.ParameterSetName) {
+                $paramHelp.ParameterSetName
+              } else {
+                "(All)"
+              }
               $content += "Parameter Sets: $parameterSetName"
-              $aliases = if ($paramHelp.Aliases) { $paramHelp.Aliases } else { "None" }
+              $aliases = if ($paramHelp.Aliases) {
+                $paramHelp.Aliases
+              } else {
+                "None"
+              }
               $content += "Aliases: $aliases"
               $content += ""
               $content += "Required: $($parameter.Required)"
@@ -193,7 +227,7 @@ jobs:
               $content += "Default value: $($parameter.DefaultValue)"
               $content += "Accept pipeline input: $($parameter.PipelineInput)"
               $content += "Accept wildcard characters: $($parameter.AcceptWildcards)"
-              $content += "```"
+              $content += '```'
             }
 
             # Add Common Parameters section
@@ -206,9 +240,9 @@ jobs:
             $content += "## INPUTS"
             if ($help.InputTypes.InputType.Type.Name) {
               $content += "### $($help.InputTypes.InputType.Type.Name)"
-              if ($help.InputTypes.InputType.Description.Text) {
-                $content += $help.InputTypes.InputType.Description.Text
-              }
+            if ($help.InputTypes.InputType.Description.Text) {
+              $content += $help.InputTypes.InputType.Description.Text
+            }
             } else {
               $content += "### None"
             }
@@ -217,9 +251,9 @@ jobs:
             $content += "## OUTPUTS"
             if ($help.ReturnValues.ReturnValue.Type.Name) {
               $content += "### $($help.ReturnValues.ReturnValue.Type.Name)"
-              if ($help.ReturnValues.ReturnValue.Description.Text) {
-                $content += $help.ReturnValues.ReturnValue.Description.Text
-              }
+            if ($help.ReturnValues.ReturnValue.Description.Text) {
+              $content += $help.ReturnValues.ReturnValue.Description.Text
+            }
             } else {
               $content += "### None"
             }
@@ -236,15 +270,17 @@ jobs:
               $content += "## RELATED LINKS"
               foreach ($link in $help.RelatedLinks.NavigationLink) {
                 if ($link.Uri) {
-                  $content += "* [$($link.LinkText)]($($link.Uri))"
+                  $content += "- [$($link.Uri)]($($link.Uri))"
                 } else {
-                  $content += "* $($link.LinkText)"
+                  $content += "- $($link.LinkText)"
                 }
               }
             }
 
             # Join with LF and write to file
-            [System.IO.File]::WriteAllText($OutputPath, ($content -join "`n"))
+            #[System.IO.File]::WriteAllText($OutputPath, ($content -join "`n"))
+              $content | Out-File $OutputPath -Encoding utf8
+              [System.IO.File]::WriteAllLines($OutputPath, $content)
           }
 
           # Generate documentation for each command in the module
@@ -257,18 +293,18 @@ jobs:
 
           # Create commands index page
           $content = @(
-            "---",
-            "layout: page",
-            "title: ActionableMessages Commands",
-            "permalink: /modules/actionablemessages/commands/",
-            "---",
-            "",
-            "# ActionableMessages Commands",
-            ""
+          "---",
+          "layout: page",
+          "title: ActionableMessages Commands",
+          "permalink: /modules/actionablemessages/commands/",
+          "---",
+          "",
+          "# ActionableMessages Commands",
+          ""
           )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            $content += "* [``$($command.Name)``]($($command.Name)/)"
+              $content += "* [``$($command.Name)``]($($command.Name)/)"
           }
 
           $commandsIndexPath = "$cmdDocsPath/index.md"
@@ -276,46 +312,40 @@ jobs:
 
           # Create main index page
           $content = @(
-            "---",
-            "layout: page",
-            "title: ActionableMessages PowerShell Module",
-            "permalink: /modules/actionablemessages/",
-            "---",
-            "",
-            "# ActionableMessages PowerShell Module",
-            "",
-            "A PowerShell module for creating Microsoft Actionable Messages.",
-            "",
-            "## Installation",
-            "",
-            "```powershell",
-            "Install-Module -Name ActionableMessages -Scope CurrentUser",
-            "```",
-            "",
-            "## Quick Start",
-            "",
-            "```powershell",
-            '$card = New-AMCard -ThemeColor "#0078D7"',
-            'Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")',
-            '$jsonCard = Export-AMCard -Card $card',
-            "```",
-            "",
-            "## Command Reference",
-            ""
+          "---",
+          "layout: page",
+          "title: ActionableMessages PowerShell Module",
+          "permalink: /modules/actionablemessages/",
+          "---",
+          "",
+          "# ActionableMessages PowerShell Module",
+          "",
+          "A PowerShell module for creating Microsoft Actionable Messages.",
+          "",
+          "## Installation",
+          "",
+          '```powershell',
+          "Install-Module -Name ActionableMessages -Scope CurrentUser",
+          '```',
+          "",
+          "## Quick Start",
+          "",
+          '```powershell',
+          '$card = New-AMCard -ThemeColor "#0078D7"',
+          'Add-AMElement -InputObject $card -Element (New-AMTextBlock -Text "Hello, World!")',
+          '$jsonCard = Export-AMCard -Card $card',
+          '```',
+          "",
+          "## Command Reference",
+          ""
           )
 
           foreach ($command in ($commands | Sort-Object -Property Name)) {
-            $content += "* [``$($command.Name)``](commands/$($command.Name)/)"
+              $content += "* [``$($command.Name)``](commands/$($command.Name)/)"
           }
 
           $mainIndexPath = "$targetDir/index.md"
           [System.IO.File]::WriteAllText($mainIndexPath, ($content -join "`n"))
-          EOL
-
-      - name: Generate docs
-        shell: pwsh
-        run: |
-          ./generate-docs.ps1
 
       - name: Commit documentation to GitHub Pages repo
         run: |
