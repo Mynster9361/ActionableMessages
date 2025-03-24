@@ -76,6 +76,29 @@ jobs:
             return $info | Sort-Object -Property Position, Name
           }
 
+          function Get-CleanSyntax($Command) {
+            # Get a clean syntax representation
+            $params = $Command.Parameters.Values | Where-Object { -not $_.IsDynamic }
+
+            $syntax = "$($Command.Name) "
+            $paramSyntax = $params | ForEach-Object {
+              $param = $_
+              $attributes = $param.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] }
+              $mandatory = $attributes | Where-Object { $_.Mandatory }
+
+              if ($mandatory) {
+                "[-$($param.Name)] <$($param.ParameterType.Name)>"
+              } else {
+                "[-$($param.Name) <$($param.ParameterType.Name)>]"
+              }
+            }
+
+            $syntax += $paramSyntax -join " "
+            $syntax += " [<CommonParameters>]"
+
+            return $syntax
+          }
+
           function Get-CommandDocumentation($CommandName, $OutputPath) {
             $command = Get-Command $CommandName
             $help = Get-Help $CommandName -Full
@@ -92,7 +115,7 @@ jobs:
             # Get parameter information
             $parameters = Get-ParameterInfo $command
 
-            # Create markdown content using string concatenation instead of here-strings
+            # Create markdown content using string concatenation
             $markdown = "---`r`n"
             $markdown += "layout: page`r`n"
             $markdown += "title: $CommandName`r`n"
@@ -101,7 +124,7 @@ jobs:
             $markdown += "# $CommandName`r`n`r`n"
             $markdown += "## SYNOPSIS`r`n$($help.Synopsis)`r`n`r`n"
             $markdown += "## SYNTAX`r`n`r`n"
-            $markdown += "```powershell`r`n$($command.Definition -replace '(?m)^\s+', '')`r`n````r`n`r`n"
+            $markdown += "```powershell`r`n$(Get-CleanSyntax $command)`r`n````r`n`r`n"
             $markdown += "## DESCRIPTION`r`n$($help.Description.Text)`r`n`r`n"
             $markdown += "## EXAMPLES`r`n"
 
@@ -110,17 +133,22 @@ jobs:
             foreach ($example in $examples) {
               $markdown += "`r`n### EXAMPLE $exampleNumber`r`n"
               $markdown += "```powershell`r`n$($example.Code)`r`n````r`n`r`n"
-              $markdown += "$($example.Remarks)`r`n"
+              if ($example.Remarks) {
+                $markdown += "$($example.Remarks)`r`n"
+              }
               $exampleNumber++
             }
 
             # Add parameters section
             $markdown += "`r`n## PARAMETERS`r`n"
 
-            foreach ($parameter in $parameters) {
+            # First add the regular parameters (non-common)
+            foreach ($parameter in $parameters | Where-Object { $_.Name -notmatch '^(Debug|ErrorAction|ErrorVariable|InformationAction|InformationVariable|OutBuffer|OutVariable|PipelineVariable|ProgressAction|Verbose|WarningAction|WarningVariable)$' }) {
               $paramHelp = $help.Parameters.Parameter | Where-Object { $_.Name -eq $parameter.Name }
               $markdown += "`r`n### -$($parameter.Name)`r`n"
-              $markdown += "$($paramHelp.Description.Text)`r`n`r`n"
+              if ($paramHelp.Description.Text) {
+                $markdown += "$($paramHelp.Description.Text)`r`n`r`n"
+              }
               $markdown += "```yaml`r`n"
               $markdown += "Type: $($parameter.Type)`r`n"
               $markdown += "Parameter Sets: $(if ($paramHelp.ParameterSetName) { $paramHelp.ParameterSetName } else { "(All)" })`r`n"
@@ -139,12 +167,24 @@ jobs:
 
             # Add inputs and outputs sections
             $markdown += "`r`n## INPUTS`r`n"
-            $markdown += "### $($help.InputTypes.InputType.Type.Name)`r`n"
-            $markdown += "$($help.InputTypes.InputType.Description.Text)`r`n"
+            if ($help.InputTypes.InputType.Type.Name) {
+              $markdown += "### $($help.InputTypes.InputType.Type.Name)`r`n"
+              if ($help.InputTypes.InputType.Description.Text) {
+                $markdown += "$($help.InputTypes.InputType.Description.Text)`r`n"
+              }
+            } else {
+              $markdown += "### None`r`n"
+            }
 
             $markdown += "`r`n## OUTPUTS`r`n"
-            $markdown += "### $($help.ReturnValues.ReturnValue.Type.Name)`r`n"
-            $markdown += "$($help.ReturnValues.ReturnValue.Description.Text)`r`n"
+            if ($help.ReturnValues.ReturnValue.Type.Name) {
+              $markdown += "### $($help.ReturnValues.ReturnValue.Type.Name)`r`n"
+              if ($help.ReturnValues.ReturnValue.Description.Text) {
+                $markdown += "$($help.ReturnValues.ReturnValue.Description.Text)`r`n"
+              }
+            } else {
+              $markdown += "### None`r`n"
+            }
 
             # Add notes and links
             if ($help.AlertSet.Alert) {
@@ -156,9 +196,9 @@ jobs:
               $markdown += "`r`n## RELATED LINKS`r`n"
               foreach ($link in $help.RelatedLinks.NavigationLink) {
                 if ($link.Uri) {
-                  $markdown += "[$($link.LinkText)]($($link.Uri))`r`n"
+                  $markdown += "* [$($link.LinkText)]($($link.Uri))`r`n"
                 } else {
-                  $markdown += "[$($link.LinkText)]`r`n"
+                  $markdown += "* [$($link.LinkText)]`r`n"
                 }
               }
             }
@@ -183,7 +223,7 @@ jobs:
           $commandsIndexContent += "---`r`n`r`n"
           $commandsIndexContent += "# ActionableMessages Commands`r`n`r`n"
           $commandLinks = $commands | Sort-Object -Property Name | ForEach-Object {
-            "- [``$($_.Name)``]($($_.Name)/)"
+            "* [``$($_.Name)``]($($_.Name)/)"
           }
           $commandsIndexContent += $commandLinks -join "`r`n"
           Set-Content -Path $commandsIndexPath -Value $commandsIndexContent -Encoding UTF8
@@ -209,7 +249,7 @@ jobs:
           $mainIndexContent += "````r`n`r`n"
           $mainIndexContent += "## Command Reference`r`n`r`n"
           $cmdLinks = $commands | Sort-Object -Property Name | ForEach-Object {
-            "- [``$($_.Name)``](commands/$($_.Name)/)"
+            "* [``$($_.Name)``](commands/$($_.Name)/)"
           }
           $mainIndexContent += $cmdLinks -join "`r`n"
           Set-Content -Path $mainIndexPath -Value $mainIndexContent -Encoding UTF8
