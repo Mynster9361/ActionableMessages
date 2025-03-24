@@ -5,7 +5,7 @@ on:
     branches:
       - main
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, edited]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +16,7 @@ jobs:
   update-release-draft:
     runs-on: ubuntu-latest
     steps:
+      # First run release-drafter to get the version and draft release body
       - name: Draft Release
         id: release-drafter
         uses: release-drafter/release-drafter@v6
@@ -24,6 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Checkout code to update module version and create assets
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -104,19 +106,17 @@ jobs:
           git commit -m "Update CHANGELOG.md and bump version to v${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
           git push
 
-      # Upload the package as a release asset
-      - name: Update Draft Release
-        uses: release-drafter/release-drafter@v6
-        with:
-          config-name: release-drafter.yml
-          commitish: ${{ github.ref }}
-          name: v${{ steps.version.outputs.new_version }}
-          tag: v${{ steps.version.outputs.new_version }}
-          version: v${{ steps.version.outputs.new_version }}
-          publish: false
-          prerelease: false
-          files: |
-            ActionableMessages-${{ steps.version.outputs.new_version }}.zip
-            CHANGELOG.md
+      # Use GitHub CLI to update the release with assets
+      - name: Upload Release Assets
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the release ID from release-drafter output
+          RELEASE_ID="${{ steps.release-drafter.outputs.id }}"
+
+          # Upload the ZIP file
+          gh release upload "v${{ steps.version.outputs.new_version }}" "ActionableMessages-${{ steps.version.outputs.new_version }}.zip" --clobber
+
+          # Upload the CHANGELOG.md file
+          gh release upload "v${{ steps.version.outputs.new_version }}" "CHANGELOG.md" --clobber
