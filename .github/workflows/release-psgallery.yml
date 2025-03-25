@@ -98,7 +98,7 @@ jobs:
                 # Publish the module
                 Write-Host "Publishing module version $Version to PowerShell Gallery..."
 
-                Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose -ErrorAction Stop
+                #Publish-Module -Path $env:GITHUB_WORKSPACE -NuGetApiKey ${{ secrets.ACTIONABLEMESSAGESPSGALLERY }} -Repository PSGallery -ReleaseNotes $ReleaseNotes -Verbose -ErrorAction Stop
 
                 Write-Host "✅ Module successfully published to PowerShell Gallery!"
             }

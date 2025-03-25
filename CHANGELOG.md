@@ -1,7 +1,10 @@
 ## [1.0.2] - [2025-03-24]
 
 ### Added
+- New cmdlet - ConvertFrom-AMJson (Lets you convert a json card into code that can be used by the module to create the same card. Should make it easier to get started and maybe convert existing json cards)
+- Auto generated documentation which can be found here "https://mynster9361.github.io/modules/actionablemessages/"
 - Release Drafter
+- Pester tests
 
 ### Fixed
 - Github Workflows
