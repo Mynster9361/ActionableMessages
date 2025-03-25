@@ -121,7 +121,7 @@ jobs:
 
             View the full release on GitHub: ${{ github.event.release.html_url }}
             "@
-
+            Write-Host "Release notes for version $Version: $ReleaseNotes"
             try {
                 # Publish the module
                 Write-Host "Publishing module version $Version to PowerShell Gallery..."
