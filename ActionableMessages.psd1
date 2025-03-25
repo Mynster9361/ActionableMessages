@@ -70,13 +70,13 @@ Description = 'A PowerShell module for creating and managing Actionable Messages
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = 'New-AMCard', 'Add-AMElement', 'Export-AMCard', 'Export-AMCardForEmail',
-               'New-AMTextBlock', 'New-AMImage', 'New-AMChoice', 'New-AMContainer',
-               'New-AMColumnSet', 'New-AMColumn', 'New-AMFactSet', 'New-AMFact',
-               'New-AMImageSet', 'New-AMActionSet', 'New-AMOpenUrlAction',
-               'New-AMShowCardAction', 'New-AMToggleVisibilityAction',
-               'New-AMExecuteAction', 'New-AMTextInput', 'New-AMNumberInput',
-               'New-AMDateInput', 'New-AMTimeInput', 'New-AMToggleInput',
-               'New-AMChoiceSetInput'
+	'New-AMTextBlock', 'New-AMImage', 'New-AMChoice', 'New-AMContainer',
+	'New-AMColumnSet', 'New-AMColumn', 'New-AMFactSet', 'New-AMFact',
+	'New-AMImageSet', 'New-AMActionSet', 'New-AMOpenUrlAction',
+	'New-AMShowCardAction', 'New-AMToggleVisibilityAction',
+	'New-AMExecuteAction', 'New-AMTextInput', 'New-AMNumberInput',
+	'New-AMDateInput', 'New-AMTimeInput', 'New-AMToggleInput',
+	'New-AMChoiceSetInput','ConvertFrom-AMJson'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
@@ -94,70 +94,82 @@ AliasesToExport = @()
 # ModuleList = @()
 
 # List of all files packaged with this module
-FileList = '.gitignore', 'build.ps1', 'README.md', 'LICENSE', 'docs/README.md',
-               'docs/en-US/about_ActionableMessages.help.txt',
-               'ActionableMessages.psd1', 'ActionableMessages.psm1',
-               'Examples/ApprovalWorkflow.ps1', 'Examples/FeedbackForm.ps1',
-               'Examples/MeetingInvite.ps1', 'Examples/SimpleNotification.ps1',
-               'Private/ConvertTo-AMJson.ps1',
-               'Public/Actions/New-AMActionSet.ps1',
-               'Public/Actions/New-AMExecuteAction.ps1',
-               'Public/Actions/New-AMOpenUrlAction.ps1',
-               'Public/Actions/New-AMShowCardAction.ps1',
-               'Public/Actions/New-AMToggleVisibilityAction.ps1',
-               'Public/Core/Add-AMElement.ps1', 'Public/Core/Export-AMCard.ps1',
-               'Public/Core/Export-AMCardForEmail.ps1',
-               'Public/Core/New-AMCard.ps1', 'Public/Elements/New-AMChoice.ps1',
-               'Public/Elements/New-AMColumn.ps1',
-               'Public/Elements/New-AMColumnSet.ps1',
-               'Public/Elements/New-AMContainer.ps1',
-               'Public/Elements/New-AMFact.ps1',
-               'Public/Elements/New-AMFactSet.ps1',
-               'Public/Elements/New-AMImage.ps1',
-               'Public/Elements/New-AMImageSet.ps1',
-               'Public/Elements/New-AMTextBlock.ps1',
-               'Public/Inputs/New-AMChoiceSetInput.ps1',
-               'Public/Inputs/New-AMDateInput.ps1',
-               'Public/Inputs/New-AMNumberInput.ps1',
-               'Public/Inputs/New-AMTextInput.ps1',
-               'Public/Inputs/New-AMTimeInput.ps1',
-               'Public/Inputs/New-AMToggleInput.ps1',
-               'Tests/Integration/ExampleCards.Tests.ps1',
-               'Tests/Unit/Actions.Tests.ps1', 'Tests/Unit/Core.Tests.ps1',
-               'Tests/Unit/Elements.Tests.ps1', 'Tests/Unit/Inputs.Tests.ps1'
+FileList = '.gitignore',
+	'build.ps1',
+	'README.md',
+	'LICENSE',
+	'docs/README.md',
+	'docs/en-US/about_ActionableMessages.help.txt',
+	'ActionableMessages.psd1',
+	'ActionableMessages.psm1',
+	'Examples/ApprovalWorkflow.ps1',
+	'Examples/FeedbackForm.ps1',
+	'Examples/MeetingInvite.ps1',
+	'Examples/SimpleNotification.ps1',
+	'Private/ConvertTo-AMJson.ps1',
+	'Public/Actions/New-AMActionSet.ps1',
+	'Public/Actions/New-AMExecuteAction.ps1',
+	'Public/Actions/New-AMOpenUrlAction.ps1',
+	'Public/Actions/New-AMShowCardAction.ps1',
+	'Public/Actions/New-AMToggleVisibilityAction.ps1',
+	'Public/Core/Add-AMElement.ps1',
+	'Public/Core/Export-AMCard.ps1',
+	'Public/Core/Export-AMCardForEmail.ps1',
+	'Public/Core/New-AMCard.ps1',
+	'Public/Core/ConvertFrom-AMJson.ps1',
+	'Public/Elements/New-AMChoice.ps1',
+	'Public/Elements/New-AMColumn.ps1',
+	'Public/Elements/New-AMColumnSet.ps1',
+	'Public/Elements/New-AMContainer.ps1',
+	'Public/Elements/New-AMFact.ps1',
+	'Public/Elements/New-AMFactSet.ps1',
+	'Public/Elements/New-AMImage.ps1',
+	'Public/Elements/New-AMImageSet.ps1',
+	'Public/Elements/New-AMTextBlock.ps1',
+	'Public/Inputs/New-AMChoiceSetInput.ps1',
+	'Public/Inputs/New-AMDateInput.ps1',
+	'Public/Inputs/New-AMNumberInput.ps1',
+	'Public/Inputs/New-AMTextInput.ps1',
+	'Public/Inputs/New-AMTimeInput.ps1',
+	'Public/Inputs/New-AMToggleInput.ps1',
+	'Tests/Integration/ExampleCards.Tests.ps1',
+	'Tests/Unit/Actions.Tests.ps1',
+	'Tests/Unit/Core.Tests.ps1',
+	'Tests/Unit/Elements.Tests.ps1',
+	'Tests/Unit/Inputs.Tests.ps1'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
 
-    PSData = @{
+	PSData = @{
 
-        # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'ActionableMessages','PowerShell','Outlook'
+		# Tags applied to this module. These help with module discovery in online galleries.
+		Tags = 'ActionableMessages','PowerShell','Outlook'
 
-        # A URL to the license for this module.
-        LicenseUri = 'https://github.com/Mynster9361/ActionableMessages/blob/main/LICENSE'
+		# A URL to the license for this module.
+		LicenseUri = 'https://github.com/Mynster9361/ActionableMessages/blob/main/LICENSE'
 
-        # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/Mynster9361/ActionableMessages'
+		# A URL to the main website for this project.
+		ProjectUri = 'https://github.com/Mynster9361/ActionableMessages'
 
-        # A URL to an icon representing this module.
-        # IconUri = ''
+		# A URL to an icon representing this module.
+		# IconUri = ''
 
-        # ReleaseNotes of this module
-        # ReleaseNotes = ''
+		# ReleaseNotes of this module
+		# ReleaseNotes = ''
 
-        # Prerelease string of this module
-        # Prerelease = ''
+		# Prerelease string of this module
+		# Prerelease = ''
 
-        # Flag to indicate whether the module requires explicit user acceptance for install/update/save
-        # RequireLicenseAcceptance = $false
+		# Flag to indicate whether the module requires explicit user acceptance for install/update/save
+		# RequireLicenseAcceptance = $false
 
-        # External dependent modules of this module
-        # ExternalModuleDependencies = @()
+		# External dependent modules of this module
+		# ExternalModuleDependencies = @()
 
-    } # End of PSData hashtable
+	} # End of PSData hashtable
 
- } # End of PrivateData hashtable
+	} # End of PrivateData hashtable
 
 # HelpInfo URI of this module
 # HelpInfoURI = ''
