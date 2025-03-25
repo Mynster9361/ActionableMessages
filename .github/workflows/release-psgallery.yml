@@ -16,7 +16,8 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}  # Check out the tagged release
 
-      - name: Get Version Information
+
+      - name: Update Module Manifest
         id: version
         shell: pwsh
         run: |
@@ -25,16 +26,43 @@ jobs:
           Write-Host "Release version: $Version"
           echo "version=$Version" >> $env:GITHUB_OUTPUT
 
-          # Verify the manifest version matches the release tag
+          # Format release notes from GitHub release
+          $ReleaseDate = Get-Date -Format "MMMM d, yyyy"
+          $ReleaseNotes = @"
+          ## Version $Version ($ReleaseDate)
+          ${{ github.event.release.body }}
+
+          View full release: ${{ github.event.release.html_url }}
+          "@
+
+          # Update module manifest
           $ManifestPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "ActionableMessages.psd1"
           $ModuleInfo = Import-PowerShellDataFile $ManifestPath
-          $ManifestVersion = $ModuleInfo.ModuleVersion
+          $CurrentVersion = $ModuleInfo.ModuleVersion
 
-          if ($Version -ne $ManifestVersion) {
-            Write-Warning "Module manifest version ($ManifestVersion) does not match release tag ($Version)"
-            Write-Warning "Updating manifest version to match release tag"
+          Write-Host "Current module version: $CurrentVersion"
+          Write-Host "Updating to version: $Version"
 
-            Update-ModuleManifest -Path $ManifestPath -ModuleVersion $Version
+          try {
+              # Directly update version and release notes
+              Update-ModuleManifest -Path $ManifestPath -ModuleVersion $Version -ReleaseNotes $ReleaseNotes -Tags @('ActionableMessages', 'PowerShell', 'Outlook', 'AdaptiveCards', 'Email') -ErrorAction Stop
+
+              # Verify update worked
+              $UpdatedModule = Import-PowerShellDataFile $ManifestPath
+              Write-Host "✅ Module manifest updated to version: $($UpdatedModule.ModuleVersion)"
+
+              if ($UpdatedModule.ModuleVersion -ne $Version) {
+                  throw "Failed to update module version properly"
+              }
+
+              # Show content of the manifest file for debugging
+              Write-Host "--- Module Manifest Content ---"
+              Get-Content $ManifestPath | Select-Object -First 20
+              Write-Host "--- End Module Manifest Content ---"
+
+          } catch {
+              Write-Error "Failed to update module manifest: $_"
+              exit 1
           }
 
       - name: Run Tests
@@ -106,20 +134,3 @@ jobs:
                 Write-Error "Failed to publish module: $_"
                 exit 1
             }
-
-      - name: Add Release Comment
-        if: success()
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          issue-number: ${{ github.event.release.id }}
-          body: |
-            ## ✅ Published to PowerShell Gallery
-
-            Module version ${{ steps.version.outputs.version }} has been successfully published to the PowerShell Gallery.
-
-            You can install it with:
-            ```powershell
-            Install-Module ActionableMessages -Scope CurrentUser
-            ```
-
-            [View on PowerShell Gallery](https://www.powershellgallery.com/packages/ActionableMessages/${{ steps.version.outputs.version }})
