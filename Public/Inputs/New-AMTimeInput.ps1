@@ -86,6 +86,6 @@ function New-AMTimeInput {
         placeholder = $placeholder
         style      = $style
     }
-
+    Write-Warning "New-AMTimeInput - This item is not supported in all outlook clients. Currently only supported in Outlook on the web."
     return $timeInput
 }

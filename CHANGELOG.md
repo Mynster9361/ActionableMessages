@@ -1,3 +1,12 @@
+## [1.0.3] - [2025-03-27]
+
+### Added
+- additional functionality for New-AMCard
+
+### Fixed
+- New-AMTimeInput - Added warning "This function is not supported in all outlook clients. Currently only supported in Outlook on the web."
+- New-AMCard - Fixed versions to use for improved reliability in diffrent outlook clients
+
 ## [1.0.2] - [2025-03-24]
 
 ### Added
