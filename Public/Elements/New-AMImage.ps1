@@ -67,7 +67,13 @@ function New-AMImage {
 
         [Parameter()]
         [ValidateSet("auto", "stretch", "small", "medium", "large")]
-        [string]$Size = "auto"
+        [string]$Size = "auto",
+
+        # implement style parameter to allow you to set the style Person should be a switch parameter
+        [Parameter()]
+        [ValidateSet("default", "person")]
+        [string]$Style = "default"
+
     )
 
     if (-not $Url) {
@@ -79,6 +85,7 @@ function New-AMImage {
         url = $Url
         altText = $AltText
         size = $Size
+        style = $Style
     }
 }
 
