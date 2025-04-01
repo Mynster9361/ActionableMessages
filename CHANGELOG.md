@@ -7,6 +7,10 @@
 - New-AMTimeInput - Added warning "This function is not supported in all outlook clients. Currently only supported in Outlook on the web."
 - New-AMCard - Fixed versions to use for improved reliability in diffrent outlook clients
 
+### Feature
+- add Style parameter to New-AMImage function to allow to set avatar default = default
+
+
 ## [1.0.2] - [2025-03-24]
 
 ### Added
