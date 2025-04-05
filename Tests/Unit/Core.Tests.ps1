@@ -12,8 +12,8 @@ Describe "Core Functions" {
 
             $card | Should -Not -BeNullOrEmpty
             $card.originator | Should -Be $testId
-            $card.type | Should -Be "AdaptiveCard"
-            $card.version | Should -Be "1.2" # Default version
+            $card.'@type' | Should -Be "AdaptiveCard"
+            $card.version | Should -Be "1.0" # Default version
             $card.hideOriginalBody | Should -Be $true # Default value
             $card.body | Should -Be $null
             $card.body.Count | Should -Be 0
@@ -83,7 +83,7 @@ Describe "Core Functions" {
 
             $json | Should -Not -BeNullOrEmpty
             $json | Should -BeOfType [System.String]
-            $json | Should -Match '"type":\s*"AdaptiveCard"'
+            $json | Should -Match '"@type":\s*"AdaptiveCard"'
             $json | Should -Match '"originator":\s*"test-id"'
         }
 
