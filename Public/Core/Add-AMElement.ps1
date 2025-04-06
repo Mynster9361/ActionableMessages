@@ -99,7 +99,9 @@ function Add-AMElement {
         $containerFound = $false
         $foundContainer = $null
 
-        $containerFound = Find-AMContainer -Elements $Card['body'] -Id $ContainerId -FoundContainer ([ref]$foundContainer)
+        if ($Card.ContainsKey('body') -and $Card['body'] -and $Card['body'].Count -gt 0) {
+            $containerFound = Find-AMContainer -Elements $Card['body'] -Id $ContainerId -FoundContainer ([ref]$foundContainer)
+        }
 
         if ($containerFound -and $foundContainer) {
             # Ensure container has items array
