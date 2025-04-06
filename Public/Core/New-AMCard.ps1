@@ -118,16 +118,6 @@ function New-AMCard {
         'padding' = $Padding
         'body' = [System.Collections.ArrayList]@()
         'actions' = [System.Collections.ArrayList]@()
-        "refresh" = '{
-            "action" = {
-              "type" = "Action.Execute",
-              "verb" = "refreshCard"
-            },
-            "userIds" = [
-              "user1",
-              "user2"
-            ]
-          }'
     }
 
     # Add optional properties only if they're specified

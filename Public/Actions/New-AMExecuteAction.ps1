@@ -86,7 +86,10 @@ function New-AMExecuteAction {
         [object]$Data,
 
         [Parameter()]
-        [string]$Id
+        [string]$Id,
+
+        [parameter()]
+        $IsPrimary = $false
     )
 
     # Create the basic action object - Note type is Action.Http not Action.Execute for ActionableMessages
@@ -101,6 +104,10 @@ function New-AMExecuteAction {
     if ($Body) { $action.body = $Body }
     if ($Data) { $action.data = $Data }
     if ($Id) { $action.id = $Id }
+    if ($IsPrimary) {
+        $action.isPrimary = $IsPrimary
+        $action.style = "positive"  # Set style to primary if isPrimary is true
+    }
     else { $action.id = "" }  # Empty ID to match the desired output
 
     return $action

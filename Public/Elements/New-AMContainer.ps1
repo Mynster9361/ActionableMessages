@@ -36,8 +36,19 @@ function New-AMContainer {
 
     .PARAMETER Padding
         Optional spacing to apply around the container contents.
-        Valid values: "None", "Small", "Default", "Large"
+        Valid values: "None", "Small", "Default", "Medium", "Large", "ExtraLarge", "Custom"
         Default: "None"
+
+        When set to "Custom", the CustomPadding parameter is used instead.
+
+    .PARAMETER CustomPadding
+        A hashtable that specifies different padding values for each side of the container.
+        Only used when Padding is set to "Custom".
+
+        The hashtable can include these keys: top, bottom, left, right
+        Each value must be one of: "None", "Small", "Default", "Medium", "Large", "ExtraLarge"
+
+        Example: @{top="None"; bottom="Default"; left="Default"; right="Default"}
 
     .EXAMPLE
         # Create a simple container with text
@@ -75,6 +86,18 @@ function New-AMContainer {
         $toggleAction = New-AMToggleVisibilityAction -Title "Show/Hide Details" -TargetElements @("details-section")
         Add-AMElement -Card $card -Element (New-AMActionSet -Id "actions" -Actions @($toggleAction))
 
+    .EXAMPLE
+        # Create a container with custom padding on different sides
+        $customPadding = @{
+            top = "None"
+            bottom = "Large"
+            left = "Small"
+            right = "Small"
+        }
+
+        $container = New-AMContainer -Id "custom-padding" -Padding "Custom" -CustomPadding $customPadding
+        Add-AMElement -Card $card -Element $container
+
     .INPUTS
         None. You cannot pipe input to New-AMContainer.
 
@@ -111,15 +134,29 @@ function New-AMContainer {
         [bool]$IsVisible,
 
         [Parameter()]
-        [ValidateSet("None", "Small", "Default", "Large")]
-        [string]$Padding = "None"  # Default to "None" to match desired output
+        [ValidateSet("None", "Small", "Default", "Medium", "Large", "ExtraLarge", "Custom")]
+        [string]$Padding = "None",  # Default to "None" to match desired output
+
+        [Parameter()]
+        [hashtable]$CustomPadding = @{}  # Custom padding as a hashtable for more flexibility example @{top=None; bottom=Default; left=Default; right=Default}
     )
 
     $container = [ordered]@{
         'type' = 'Container'
         'id' = $Id
         'items' = @()
-        'padding' = $Padding
+    }
+    if ($Padding -eq "Custom") {
+        # Validate that all values in CustomPadding are from the allowed set
+        $validValues = @("None", "Small", "Default", "Medium", "Large", "ExtraLarge")
+        foreach ($key in $CustomPadding.Keys) {
+            if ($CustomPadding[$key] -notin $validValues) {
+                throw "Invalid padding value '$($CustomPadding[$value])' for '$value'. Valid values are: $($validValues -join ', ')"
+            }
+        }
+        $container.padding = $CustomPadding
+    } else {
+        $container.padding = $Padding
     }
 
     if ($Style) { $container.style = $Style }

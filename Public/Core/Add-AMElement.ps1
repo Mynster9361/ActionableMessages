@@ -95,39 +95,33 @@ function Add-AMElement {
     }
 
     if ($ContainerId) {
-        # Find the container by ID
+        # Find the container by ID recursively
         $containerFound = $false
+        $foundContainer = $null
 
-        for ($i = 0; $i -lt $Card['body'].Count; $i++) {
-            if ($Card['body'][$i].id -eq $ContainerId) {
-                # Container found
-                $containerFound = $true
+        $containerFound = Find-AMContainer -Elements $Card['body'] -Id $ContainerId -FoundContainer ([ref]$foundContainer)
 
-                # Ensure container has items array
-                if (-not $Card['body'][$i].ContainsKey('items')) {
-                    $Card['body'][$i]['items'] = [System.Collections.ArrayList]@()
-                }
-
-                # Add element to container's items
-                if ($Card['body'][$i]['items'] -is [System.Collections.ArrayList]) {
-                    [void]$Card['body'][$i]['items'].Add($Element)
-                } else {
-                    # Convert to ArrayList if not already
-                    $newItems = [System.Collections.ArrayList]@()
-                    if ($Card['body'][$i]['items']) {
-                        foreach ($item in $Card['body'][$i]['items']) {
-                            [void]$newItems.Add($item)
-                        }
-                    }
-                    [void]$newItems.Add($Element)
-                    $Card['body'][$i]['items'] = $newItems
-                }
-
-                break
+        if ($containerFound -and $foundContainer) {
+            # Ensure container has items array
+            if (-not $foundContainer.ContainsKey('items')) {
+                $foundContainer['items'] = [System.Collections.ArrayList]@()
             }
-        }
 
-        if (-not $containerFound) {
+            # Add element to container's items
+            if ($foundContainer['items'] -is [System.Collections.ArrayList]) {
+                [void]$foundContainer['items'].Add($Element)
+            } else {
+                # Convert to ArrayList if not already
+                $newItems = [System.Collections.ArrayList]@()
+                if ($foundContainer['items']) {
+                    foreach ($item in $foundContainer['items']) {
+                        [void]$newItems.Add($item)
+                    }
+                }
+                [void]$newItems.Add($Element)
+                $foundContainer['items'] = $newItems
+            }
+        } else {
             throw "Container with ID '$ContainerId' not found"
         }
     } else {

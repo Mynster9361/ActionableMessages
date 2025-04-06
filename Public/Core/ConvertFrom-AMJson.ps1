@@ -43,13 +43,6 @@ function ConvertFrom-AMJson {
         $response = Invoke-RestMethod -Uri "https://myapi.example.com/cards/template"
         $response.cardJson | ConvertFrom-AMJson
 
-    .EXAMPLE
-        # Convert and immediately execute the generated script
-        $json = '{"type":"AdaptiveCard","version":"1.2","body":[{"type":"TextBlock","text":"Hello World"}]}'
-        $script = ConvertFrom-AMJson -Json $json
-        Invoke-Expression $script
-        $cardJson # Access the card created by the script
-
     .INPUTS
         System.String
 
@@ -89,6 +82,68 @@ function ConvertFrom-AMJson {
         # Track processed elements to avoid duplicates
         $script:processedElements = @{}
         $script:variableCounter = 0
+
+        # Generic function to convert JSON object to PowerShell hashtable representation
+        function ConvertTo-PowerShellHashtable {
+            param(
+                [Parameter(Mandatory = $true)]
+                $InputObject,
+
+                [Parameter(Mandatory = $false)]
+                [int]$IndentLevel = 0,
+
+                [Parameter(Mandatory = $false)]
+                [switch]$AsString
+            )
+
+            $indent = "    " * $IndentLevel
+            $nextIndent = "    " * ($IndentLevel + 1)
+
+            if ($null -eq $InputObject) {
+                return "`$null"
+            }
+            elseif ($InputObject -is [string]) {
+                return "`"$($InputObject.Replace('"', '`"'))`""
+            }
+            elseif ($InputObject -is [bool]) {
+                return "`$$($InputObject.ToString().ToLower())"
+            }
+            elseif ($InputObject -is [int] -or $InputObject -is [double]) {
+                return "$InputObject"
+            }
+            elseif ($InputObject -is [array]) {
+                $arrayItems = @()
+                foreach ($item in $InputObject) {
+                    $arrayItems += (ConvertTo-PowerShellHashtable -InputObject $item -IndentLevel ($IndentLevel + 1))
+                }
+
+                if ($AsString) {
+                    return "@(`n$($nextIndent)$($arrayItems -join ",`n$nextIndent")`n$indent)"
+                } else {
+                    return $arrayItems
+                }
+            }
+            elseif ($InputObject -is [PSCustomObject] -or $InputObject -is [hashtable]) {
+                $hashtable = [ordered]@{}
+                foreach ($prop in $InputObject.PSObject.Properties) {
+                    $hashtable[$prop.Name] = ConvertTo-PowerShellHashtable -InputObject $prop.Value -IndentLevel ($IndentLevel + 1)
+                }
+
+                if ($AsString) {
+                    $hashLines = "@{`n"
+                    foreach ($key in $hashtable.Keys) {
+                        $hashLines += "$nextIndent'$key' = $($hashtable[$key]);`n"
+                    }
+                    $hashLines += "$indent}"
+                    return $hashLines
+                } else {
+                    return $hashtable
+                }
+            }
+            else {
+                return "$InputObject"
+            }
+        }
 
         # Function to generate a unique variable name
         function Get-UniqueVarName {
@@ -144,6 +199,8 @@ function ConvertFrom-AMJson {
             $cardParams = @()
             if ($CardObject.originator) {
                 $cardParams += "-OriginatorId `"$($CardObject.originator)`""
+            } else {
+                $cardParams += "-OriginatorId `"Replace-Me-With-Your-OriginatorId`""
             }
             if ($CardObject.version) {
                 $cardParams += "-Version `"$($CardObject.version)`""
@@ -272,7 +329,28 @@ function ConvertFrom-AMJson {
                 $params += "-Style `"$($Element.style)`""
             }
             if ($Element.padding) {
-                $params += "-Padding `"$($Element.padding)`""
+                if ($Element.padding -is [PSCustomObject]) {
+                    $customPadding = [hashtable]@{}
+                    $customPadding.top = "$($Element.padding.top)"
+                    $customPadding.bottom = "$($Element.padding.bottom)"
+                    $customPadding.left = "$($Element.padding.left)"
+                    $customPadding.right = "$($Element.padding.right)"
+
+                    # Format the hashtable as PowerShell syntax
+                    $formattedPadding = "@{"
+                    foreach ($key in $customPadding.Keys) {
+                        if ($customPadding[$key]) {
+                            $formattedPadding += "$key=`"$($customPadding[$key])`"; "
+                        }
+                    }
+                    $formattedPadding = $formattedPadding.TrimEnd('; ') + "}"
+
+                    # Add properly formatted hashtable to params separately
+                    $params += "-Padding `"Custom`""
+                    $params += "-CustomPadding $formattedPadding"
+                } else {
+                    $params += "-Padding `"$($Element.padding)`""
+                }
             }
 
             Add-ScriptLine "`$$varName = New-AMContainer $($params -join ' ')"
@@ -305,23 +383,145 @@ function ConvertFrom-AMJson {
                     Add-ScriptLine "`$$colVarName = New-AMColumn -Width `"$($column.width)`" -Items @("
 
                     foreach ($item in $column.items) {
-                        if ($item.type -eq "TextBlock") {
-                            $textParams = @("`"$($item.text)`"")
+                        switch ($item.type) {
+                            TextBlock {
+                                $textParams = @("`"$($item.text)`"")
 
-                            if ($item.size -and $item.size -ne "Medium") {
-                                $textParams += "-Size `"$($item.size)`""
-                            }
-                            if ($item.weight -and $item.weight -ne "Default") {
-                                $textParams += "-Weight `"$($item.weight)`""
-                            }
-                            if ($item.color -and $item.color -ne "Default") {
-                                $textParams += "-Color `"$($item.color)`""
-                            }
+                                if ($item.size -and $item.size -ne "Medium") {
+                                    $textParams += "-Size `"$($item.size)`""
+                                }
+                                if ($item.weight -and $item.weight -ne "Default") {
+                                    $textParams += "-Weight `"$($item.weight)`""
+                                }
+                                if ($item.color -and $item.color -ne "Default") {
+                                    $textParams += "-Color `"$($item.color)`""
+                                }
+                                if ($item.wrap -and $item.wrap -eq "True") {
+                                    $textParams += "-Wrap `$true"
+                                }
 
-                            Add-ScriptLine "    (New-AMTextBlock -Text $($textParams -join ' ')),"
-                        }
-                        else {
-                            Add-ScriptLine "    # Unsupported column item: $($item.type)"
+                                Add-ScriptLine "    (New-AMTextBlock $($textParams -join ' ')),"
+                             }
+                            Image {
+                                $imgParams = @("-Url `"$($item.url)`"")
+
+                                if ($item.altText) {
+                                    $imgParams += "-AltText `"$($item.altText)`""
+                                }
+                                if ($item.size) {
+                                    $imgParams += "-Size `"$($item.size)`""
+                                }
+
+                                Add-ScriptLine "    (New-AMImage $($imgParams -join ' ')),"
+                            }
+                            ImageSet {
+                                $imgSetParams = @("-Images @(")
+                                foreach ($img in $item.images) {
+                                    $imgSetParams += "`"$($img.url)`","
+                                }
+                                # Remove the trailing comma
+                                $imgSetParams[$imgSetParams.Count - 1] = $imgSetParams[$imgSetParams.Count - 1].TrimEnd(',')
+                                $imgSetParams += "))"
+
+                                Add-ScriptLine "    (New-AMImageSet $($imgSetParams -join ' ')),"
+                            }
+                            FactSet {
+                                $factParams = @("-Facts @(")
+                                foreach ($fact in $item.facts) {
+                                    if ($fact -eq $item.facts[-1]) {
+                                        $factParams += "(New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`")"
+                                    } else {
+                                        $factParams += "(New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`"),"
+                                    }
+                                }
+                                $factParams += "))"
+
+                                Add-ScriptLine "    (New-AMFactSet $($factParams -join ' '),"
+                            }
+                            ActionSet {
+                                $actionVars = @()
+                                foreach ($action in $item.actions) {
+                                    $actionVar = Process-Action -Action $action
+                                    if ($actionVar) {
+                                        $actionVars += "`$$actionVar"
+                                    }
+                                }
+
+                                $params = @("-Actions @($($actionVars -join ', '))")
+                                if ($item.id) { $params += "-Id `"$($item.id)`"" }
+
+                                Add-ScriptLine "    (New-AMActionSet $($params -join ' ')),"
+                            }
+                            Container {
+                                $containerVar = Process-Container -Element $item -ContainerId $colVarName
+                                if ($containerVar) {
+                                    Add-ScriptLine "    `$containerVar,"
+                                }
+                            }
+                            ColumnSet {
+                                $colSetVar = Process-ColumnSet -Element $item -ContainerId $colVarName
+                                if ($colSetVar) {
+                                    Add-ScriptLine "    `$colSetVar,"
+                                }
+                            }
+                            Input.Text {
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.label) { $inputParams += "-Label `"$($item.label)`"" }
+                                if ($item.placeholder) { $inputParams += "-Placeholder `"$($item.placeholder)`"" }
+                                if ($item.maxLength) { $inputParams += "-MaxLength $($item.maxLength)" }
+
+                                Add-ScriptLine "    (New-AMTextInput $($inputParams -join ' ')),"
+                            }
+                            Input.Number {
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.placeholder) { $inputParams += "-Placeholder `"$($item.placeholder)`"" }
+                                if ($item.min) { $inputParams += "-Min $($item.min)" }
+                                if ($item.max) { $inputParams += "-Max $($item.max)" }
+
+                                Add-ScriptLine "    (New-AMNumberInput $($inputParams -join ' ')),"
+                            }
+                            Input.Date {
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.label) { $inputParams += "-Label `"$($item.label)`"" }
+                                if ($item.value) { $inputParams += "-Value `"$($item.value)`"" }
+
+                                Add-ScriptLine "    (New-AMDateInput $($inputParams -join ' ')),"
+                            }
+                            Input.Time {
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.label) { $inputParams += "-Label `"$($item.label)`"" }
+                                if ($item.value) { $inputParams += "-Value `"$($item.value)`"" }
+
+                                Add-ScriptLine "    (New-AMTimeInput $($inputParams -join ' ')),"
+                            }
+                            Input.ChoiceSet {
+                                # Create choices array
+                                Add-ScriptLine "`$choices = @("
+                                foreach ($choice in $item.choices) {
+                                    Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`"),"
+                                }
+                                # Remove the trailing comma
+                                $script:output = $script:output -replace ",\r\n$", "`r`n"
+                                Add-ScriptLine ")"
+
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.label) { $inputParams += "-Label `"$($item.label)`"" }
+                                if ($item.style) { $inputParams += "-Style `"$($item.style)`"" }
+                                if ($item.isMultiSelect -ne $false) { $inputParams += "-IsMultiSelect `$$($item.isMultiSelect)" }
+                                $inputParams += "-Choices `$choices"
+
+                                Add-ScriptLine "    (New-AMChoiceSetInput $($inputParams -join ' ')),"
+                            }
+                            Input.Toggle {
+                                $inputParams = @("-Id `"$($item.id)`"")
+                                if ($item.title) { $inputParams += "-Title `"$($item.title)`"" }
+                                if ($item.value) { $inputParams += "-Value `"$($item.value)`"" }
+
+                                Add-ScriptLine "    (New-AMToggleInput $($inputParams -join ' ')),"
+                            }
+                            Default {
+                                Add-ScriptLine "    # Unsupported column item: $($item.type)"
+                            }
                         }
                     }
 
@@ -330,7 +530,7 @@ function ConvertFrom-AMJson {
                     Add-ScriptLine ")"
                 }
                 else {
-                    Add-ScriptLine "`$$colVarName = New-AMColumn -Width `"$($column.width)`""
+                    Add-ScriptLine "`$$colVarName = New-AMColumn -Width `"$($column.width)`" -Items @()"
                 }
 
                 $columnVars += "`$$colVarName"
@@ -340,6 +540,8 @@ function ConvertFrom-AMJson {
             $csParams = @()
             if ($Element.id) {
                 $csParams += "-Id `"$($Element.id)`""
+            } else {
+                $csParams += "-Id `"$($varName)`""
             }
             $csParams += "-Columns @($($columnVars -join ', '))"
 
@@ -356,10 +558,12 @@ function ConvertFrom-AMJson {
 
             Add-ScriptLine "`$facts = @("
             foreach ($fact in $Element.facts) {
-                Add-ScriptLine "    (New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`"),"
+                if ($fact -eq $Element.facts[-1]) {
+                    Add-ScriptLine "    (New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`")"
+                } else {
+                    Add-ScriptLine "    (New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`"),"
+                }
             }
-            # Remove the trailing comma
-            $script:output = $script:output -replace ",\r\n$", "`r`n"
             Add-ScriptLine ")"
 
             Add-ScriptLine "`$$varName = New-AMFactSet -Facts `$facts"
@@ -380,6 +584,7 @@ function ConvertFrom-AMJson {
                     if ($Element.label) { $params += "-Label `"$($Element.label)`"" }
                     if ($Element.placeholder) { $params += "-Placeholder `"$($Element.placeholder)`"" }
                     if ($Element.maxLength) { $params += "-MaxLength $($Element.maxLength)" }
+                    if ($Element.isMultiline -eq $true) { $params += "-IsMultiline `$true" }
 
                     Add-ScriptLine "`$$varName = New-AMTextInput $($params -join ' ')"
                 }
@@ -409,10 +614,12 @@ function ConvertFrom-AMJson {
                     # Create choices array
                     Add-ScriptLine "`$choices = @("
                     foreach ($choice in $Element.choices) {
-                        Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`"),"
+                        if ($choice -eq $Element.choices[-1]) {
+                            Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`")"
+                        } else {
+                            Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`"),"
+                        }
                     }
-                    # Remove the trailing comma
-                    $script:output = $script:output -replace ",\r\n$", "`r`n"
                     Add-ScriptLine ")"
 
                     $params = @("-Id `"$($Element.id)`"")
@@ -457,35 +664,60 @@ function ConvertFrom-AMJson {
                 "ShowCard" {
                     $params = @()
                     if ($Action.title) { $params += "-Title `"$($Action.title)`"" }
+                    if ($Action.id) { $params += "-Id `"$($Action.id)`"" }
 
-                    # Create card definition
+                    # Create a properly structured card object manually
                     Add-ScriptLine "`$detailCard = @{"
                     Add-ScriptLine "    'type' = 'AdaptiveCard'"
-                    if ($Action.card.body) {
+
+                    # Handle the body array properly
+                    if ($Action.card.body -and $Action.card.body.Count -gt 0) {
                         Add-ScriptLine "    'body' = @("
+
                         foreach ($bodyItem in $Action.card.body) {
                             Add-ScriptLine "        @{"
-                            foreach ($prop in $bodyItem.PSObject.Properties) {
-                                if ($prop.Value -is [string]) {
-                                    Add-ScriptLine "            '$($prop.Name)' = `"$($prop.Value)`""
+                            Add-ScriptLine "            'type' = `"$($bodyItem.type)`""
+
+                            # Add other properties based on type
+                            if ($bodyItem.id) { Add-ScriptLine "            'id' = `"$($bodyItem.id)`"" }
+
+                            switch -Regex ($bodyItem.type) {
+                                "Input\.Text" {
+                                    if ($bodyItem.placeholder) { Add-ScriptLine "            'placeholder' = `"$($bodyItem.placeholder)`"" }
+                                    if ($bodyItem.isMultiline -ne $null) { Add-ScriptLine "            'isMultiline' = `$$($bodyItem.isMultiline.ToString().ToLower())" }
                                 }
-                                elseif ($prop.Value -is [bool]) {
-                                    Add-ScriptLine "            '$($prop.Name)' = `$$($prop.Value.ToString().ToLower())"
-                                }
-                                else {
-                                    Add-ScriptLine "            '$($prop.Name)' = $($prop.Value)"
+                                "ActionSet" {
+                                    Add-ScriptLine "            'actions' = @("
+
+                                    foreach ($action in $bodyItem.actions) {
+                                        Add-ScriptLine "                @{"
+                                        Add-ScriptLine "                    'type' = `"$($action.type)`""
+                                        if ($action.id) { Add-ScriptLine "                    'id' = `"$($action.id)`"" }
+                                        if ($action.title) { Add-ScriptLine "                    'title' = `"$($action.title)`"" }
+                                        if ($action.method) { Add-ScriptLine "                    'method' = `"$($action.method)`"" }
+                                        if ($action.url) { Add-ScriptLine "                    'url' = `"$($action.url)`"" }
+                                        if ($action.body) { Add-ScriptLine "                    'body' = `"$($action.body.Replace('"', '`"'))`"" }
+                                        Add-ScriptLine "                }"
+                                    }
+
+                                    Add-ScriptLine "            )"
                                 }
                             }
-                            Add-ScriptLine "        }"
+
+                            Add-ScriptLine "        },"
                         }
+
+                        # Remove trailing comma from last item
+                        $script:output = $script:output -replace ",\r\n$", "`r`n"
                         Add-ScriptLine "    )"
+                    } else {
+                        Add-ScriptLine "    'body' = @()"
                     }
-                    if ($Action.card.'$schema') {
-                        Add-ScriptLine "    '`$schema' = '$($Action.card.'$schema')'"
-                    }
-                    if ($Action.card.padding) {
-                        Add-ScriptLine "    'padding' = '$($Action.card.padding)'"
-                    }
+
+                    # Add other card properties
+                    if ($Action.card.'$schema') { Add-ScriptLine "    '`$schema' = '$($Action.card.'$schema')'" }
+                    if ($Action.card.fallbackText) { Add-ScriptLine "    'fallbackText' = '$($Action.card.fallbackText)'" }
+                    if ($Action.card.padding) { Add-ScriptLine "    'padding' = '$($Action.card.padding)'" }
                     Add-ScriptLine "}"
 
                     $params += "-Card `$detailCard"
@@ -496,7 +728,11 @@ function ConvertFrom-AMJson {
                     if ($Action.title) { $params += "-Title `"$($Action.title)`"" }
                     if ($Action.method) { $params += "-Verb `"$($Action.method)`"" }
                     if ($Action.url) { $params += "-Url `"$($Action.url)`"" }
-                    if ($Action.body) { $params += "-Body '$($Action.body)'" }
+                    if ($Action.body) {
+                        $escapedBody = $Action.body.Replace("'", "''").Replace('"', '`"')
+                        $params += "-Body '$escapedBody'"
+                    }
+                    if ($Action.isPrimary -eq $true) { $params += "-IsPrimary `$true" }
 
                     Add-ScriptLine "`$$varName = New-AMExecuteAction $($params -join ' ')"
                 }
