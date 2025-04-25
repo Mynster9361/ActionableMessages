@@ -4,7 +4,7 @@ function New-AMToggleInput {
         Creates a Toggle Input element for an Adaptive Card.
 
     .DESCRIPTION
-        Creates an Input.Toggle element that allows users to switch between two states: on or off.
+        The `New-AMToggleInput` function creates an Input.Toggle element that allows users to switch between two states: on or off.
         Toggle inputs are useful for boolean choices, preferences, or any yes/no decision.
 
         The element typically renders as a checkbox or toggle switch depending on the host
@@ -20,22 +20,22 @@ function New-AMToggleInput {
 
     .PARAMETER value
         The initial state of the toggle.
-        - $true or "true": The toggle is initially on/checked
-        - $false or "false": The toggle is initially off/unchecked
-        Default: $false
+        - `$true` or `"true"`: The toggle is initially on/checked.
+        - `$false` or `"false"`: The toggle is initially off/unchecked.
+        Default: `$false`
 
     .PARAMETER valueOn
         Optional text value to submit when the toggle is in the "on" state.
-        Default: "true"
+        Default: `"true"`
 
     .PARAMETER valueOff
         Optional text value to submit when the toggle is in the "off" state.
-        Default: "false"
+        Default: `"false"`
 
     .PARAMETER style
         Optional visual style for the toggle input.
-        Valid values: "default", "expanded", "compact"
-        Default: "default"
+        Valid values: `"default"`, `"expanded"`, `"compact"`
+        Default: `"default"`
 
     .EXAMPLE
         # Create a simple toggle for agreement
@@ -63,7 +63,7 @@ function New-AMToggleInput {
         Add-AMElement -Card $card -Element $weeklyToggle -ContainerId "settings"
 
     .INPUTS
-        None. You cannot pipe input to New-AMToggleInput.
+        None. You cannot pipe input to `New-AMToggleInput`.
 
     .OUTPUTS
         System.Collections.Hashtable
@@ -73,9 +73,9 @@ function New-AMToggleInput {
         Toggle inputs are ideal for binary choices where the user must select one of two options.
 
         When designing forms with toggles:
-        - Use clear, concise labels that indicate the "on" state
-        - Consider grouping related toggles together
-        - For more complex choices with multiple options, consider using ChoiceSet instead
+        - Use clear, concise labels that indicate the "on" state.
+        - Consider grouping related toggles together.
+        - For more complex choices with multiple options, consider using `ChoiceSet` instead.
 
     .LINK
         https://adaptivecards.io/explorer/Input.Toggle.html
@@ -101,5 +101,3 @@ function New-AMToggleInput {
 
     return $toggleInput
 }
-
-Export-ModuleMember -Function New-AMToggleInput

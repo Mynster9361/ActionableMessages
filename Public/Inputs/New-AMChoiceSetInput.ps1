@@ -4,12 +4,14 @@ function New-AMChoiceSetInput {
         Creates a ChoiceSetInput element for an Adaptive Card.
 
     .DESCRIPTION
-        Creates a ChoiceSetInput element that allows users to select from a list of options.
-        This element can be rendered as a dropdown list, radio button group, or checkbox list
-        depending on the Style and IsMultiSelect parameters.
+        The `New-AMChoiceSetInput` function creates a ChoiceSetInput element that allows users to select from a list of options.
+        This element can be rendered as a dropdown list, radio button group, or checkbox list depending on the `Style` and `IsMultiSelect` parameters.
 
-        ChoiceSetInputs are useful for collecting structured input from users, such as
-        selecting preferences, categories, options, or making decisions from predefined choices.
+        ChoiceSetInputs are useful for collecting structured input from users, such as selecting preferences, categories, options,
+        or making decisions from predefined choices.
+
+        Each choice in the set must be created using the `New-AMChoice` function, which defines the display text (`Title`) and
+        the value submitted when the choice is selected (`Value`).
 
     .PARAMETER Id
         A unique identifier for the input element. This ID will be used when the card is submitted
@@ -19,13 +21,13 @@ function New-AMChoiceSetInput {
         Optional text label to display above the input field, describing what the input is for.
 
     .PARAMETER Choices
-        An array of choice objects created using the New-AMChoice function. Each choice should
-        have a title (displayed text) and value (data submitted when selected).
+        An array of choice objects created using the `New-AMChoice` function. Each choice should
+        have a `Title` (displayed text) and `Value` (data submitted when selected).
 
     .PARAMETER IsMultiSelect
         Determines whether multiple choices can be selected.
-        When set to $true, the input allows multiple selections (checkboxes).
-        When set to $false (default), only a single option can be selected (dropdown or radio buttons).
+        When set to `$true`, the input allows multiple selections (checkboxes).
+        When set to `$false` (default), only a single option can be selected (dropdown or radio buttons).
 
     .PARAMETER Style
         Controls how the choices are displayed:
@@ -42,6 +44,7 @@ function New-AMChoiceSetInput {
 
     .PARAMETER IsVisible
         Controls whether the input is initially visible or hidden.
+        Default: `$true`
 
     .EXAMPLE
         # Create a simple dropdown list
@@ -75,23 +78,32 @@ function New-AMChoiceSetInput {
         $toppingsInput = New-AMChoiceSetInput -Id "toppings" -Label "Select toppings:" `
             -Choices $toppingsChoices -IsMultiSelect $true -Style "expanded"
 
+    .EXAMPLE
+        # Create a filtered dropdown list
+        $countries = @(
+            New-AMChoice -Title "United States" -Value "us"
+            New-AMChoice -Title "Canada" -Value "ca"
+            New-AMChoice -Title "United Kingdom" -Value "uk"
+            New-AMChoice -Title "Australia" -Value "au"
+        )
+        $countryDropdown = New-AMChoiceSetInput -Id "country" -Label "Select your country:" `
+            -Choices $countries -Style "filtered"
+
     .INPUTS
-        None. You cannot pipe input to New-AMChoiceSetInput.
+        None. You cannot pipe input to `New-AMChoiceSetInput`.
 
     .OUTPUTS
         System.Collections.Hashtable
         Returns a hashtable representing the ChoiceSetInput element.
 
     .NOTES
-        The ChoiceSetInput is one of the most versatile input elements in Adaptive Cards.
-
-        Style recommendations:
-        - Use "compact" (dropdown) when you have many options or limited space
-        - Use "expanded" (radio/checkbox) when you have fewer options (2-5) and want them all visible
-        - Use "filtered" when you have a long list that users might need to search through
-
-        Remember that the value submitted will be the "value" property of the choice, not the "title"
-        that is displayed to the user.
+        - The `ChoiceSetInput` is one of the most versatile input elements in Adaptive Cards.
+        - Style recommendations:
+          - Use "compact" (dropdown) when you have many options or limited space.
+          - Use "expanded" (radio/checkbox) when you have fewer options (2-5) and want them all visible.
+          - Use "filtered" when you have a long list that users might need to search through.
+        - Remember that the value submitted will be the `Value` property of the choice, not the `Title`
+          that is displayed to the user.
 
     .LINK
         https://adaptivecards.io/explorer/Input.ChoiceSet.html

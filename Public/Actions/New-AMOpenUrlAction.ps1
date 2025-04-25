@@ -4,25 +4,28 @@ function New-AMOpenUrlAction {
         Creates an OpenUrl Action for an Adaptive Card.
 
     .DESCRIPTION
-        Creates an Action.OpenUrl element that opens a URL in a web browser when clicked.
-        This action is commonly used to provide links to external resources, documentation,
-        or related web pages from within your Adaptive Card.
+        The `New-AMOpenUrlAction` function generates an `Action.OpenUrl` element for an Adaptive Card.
+        This action opens a specified URL in the user's web browser when the button is clicked.
+        It is commonly used to provide links to external resources, documentation, or related web pages
+        from within your Adaptive Card.
+
+        Unlike other action types, `Action.OpenUrl` does not require any special permissions or registrations,
+        making it one of the simplest and most versatile actions in Adaptive Cards.
 
     .PARAMETER Title
-        The title text to display on the action button.
+        The text to display on the action button.
 
     .PARAMETER Url
-        The URL to open when the button is clicked. This must be a valid URL including
-        the protocol (e.g., "https://").
+        The URL to open when the button is clicked. This must be a valid URL, including the protocol
+        (e.g., "https://").
 
     .PARAMETER Id
-        Optional unique identifier for the action. If not specified, a new GUID will be
-        generated automatically. The ID can be useful when you need to reference this
-        action programmatically.
+        (Optional) A unique identifier for the action. If not specified, a new GUID will be generated automatically.
+        The ID can be useful when you need to reference this action programmatically.
 
     .PARAMETER Tooltip
-        Optional tooltip text to display when the user hovers over the button.
-        Use this to provide additional context about what will happen when clicked.
+        (Optional) Tooltip text to display when the user hovers over the button. Use this to provide additional
+        context about what will happen when the button is clicked.
 
     .EXAMPLE
         # Create a simple "Learn More" button
@@ -45,18 +48,17 @@ function New-AMOpenUrlAction {
         $actionSet = New-AMActionSet -Id "links" -Actions $actions
 
     .INPUTS
-        None. You cannot pipe input to New-AMOpenUrlAction.
+        None. You cannot pipe input to `New-AMOpenUrlAction`.
 
     .OUTPUTS
         System.Collections.Hashtable
-        Returns a hashtable representing the Action.OpenUrl element.
+        Returns a hashtable representing the `Action.OpenUrl` element.
 
     .NOTES
-        Action.OpenUrl is one of the most commonly used action types in Adaptive Cards.
-        Unlike other action types, Action.OpenUrl doesn't require any special permissions
-        or registrations since it simply opens a URL in the user's browser.
-
-        In Outlook, the URL will typically open in the user's default web browser.
+        - `Action.OpenUrl` is one of the most commonly used action types in Adaptive Cards.
+        - Unlike other action types, `Action.OpenUrl` does not require any special permissions
+          or registrations since it simply opens a URL in the user's browser.
+        - In Outlook, the URL will typically open in the user's default web browser.
 
     .LINK
         https://adaptivecards.io/explorer/Action.OpenUrl.html

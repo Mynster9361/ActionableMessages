@@ -4,7 +4,7 @@ function New-AMTextInput {
         Creates a text input field for an Adaptive Card.
 
     .DESCRIPTION
-        Creates an Input.Text element that allows users to enter text in an Adaptive Card.
+        The `New-AMTextInput` function creates an Input.Text element that allows users to enter text in an Adaptive Card.
         Text inputs can be single-line or multi-line and support various configuration options
         like placeholders, default values, maximum length, and validation requirements.
 
@@ -25,18 +25,18 @@ function New-AMTextInput {
         Optional default text to pre-fill in the input field when the card is displayed.
 
     .PARAMETER IsMultiline
-        When set to $true, creates a text area that allows for multiple lines of text.
-        When set to $false (default), creates a single-line text input field.
+        When set to `$true`, creates a text area that allows for multiple lines of text.
+        When set to `$false` (default), creates a single-line text input field.
 
     .PARAMETER IsRequired
-        When set to $true, the field must contain text when submitted.
-        When set to $false (default), the field is optional.
+        When set to `$true`, the field must contain text when submitted.
+        When set to `$false` (default), the field is optional.
 
     .PARAMETER MaxLength
         Optional maximum number of characters allowed in the input field.
 
     .PARAMETER Separator
-        When set to $true, adds a visible separator line above the input field.
+        When set to `$true`, adds a visible separator line above the input field.
 
     .EXAMPLE
         # Create a simple single-line text input
@@ -59,7 +59,7 @@ function New-AMTextInput {
             -Value "user@example.com" -Placeholder "name@company.com"
 
     .INPUTS
-        None. You cannot pipe input to New-AMTextInput.
+        None. You cannot pipe input to `New-AMTextInput`.
 
     .OUTPUTS
         System.Collections.Hashtable
@@ -67,12 +67,11 @@ function New-AMTextInput {
 
     .NOTES
         Text inputs are versatile elements for gathering user feedback. Some best practices:
-
-        - Always use clear labels to identify what information is being requested
-        - Use placeholder text to provide examples or formatting guidance
-        - For longer text entries, set IsMultiline to $true
-        - Consider using MaxLength to prevent excessive text entry
-        - Set IsRequired for fields that must be filled
+        - Always use clear labels to identify what information is being requested.
+        - Use placeholder text to provide examples or formatting guidance.
+        - For longer text entries, set `IsMultiline` to `$true`.
+        - Consider using `MaxLength` to prevent excessive text entry.
+        - Set `IsRequired` for fields that must be filled.
 
     .LINK
         https://adaptivecards.io/explorer/Input.Text.html

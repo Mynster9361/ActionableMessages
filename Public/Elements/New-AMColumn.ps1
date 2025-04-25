@@ -4,10 +4,12 @@ function New-AMColumn {
         Creates a Column element for use in ColumnSets within an Adaptive Card.
 
     .DESCRIPTION
-        Creates a Column object that can be used in a ColumnSet to create multi-column layouts.
+        The `New-AMColumn` function creates a Column object that can be used in a ColumnSet to create multi-column layouts.
         Columns can contain any number of items and help organize content horizontally.
-        Multiple columns are typically grouped together in a ColumnSet element created with
-        New-AMColumnSet.
+        Multiple columns are typically grouped together in a ColumnSet element created with `New-AMColumnSet`.
+
+        Columns are flexible and can be customized with width, vertical alignment, and content. They are essential
+        for creating visually appealing and organized Adaptive Cards.
 
     .PARAMETER Width
         Specifies the width of the column. This can be:
@@ -26,7 +28,7 @@ function New-AMColumn {
 
     .PARAMETER Items
         An array of elements to place inside the column. These should be created using
-        other New-AM* functions like New-AMTextBlock, New-AMImage, etc.
+        other `New-AM*` functions like `New-AMTextBlock`, `New-AMImage`, etc.
 
         Default: empty array (@())
 
@@ -67,23 +69,22 @@ function New-AMColumn {
         $columnSet = New-AMColumnSet -Columns @($col1, $col2, $col3)
 
     .INPUTS
-        None. You cannot pipe input to New-AMColumn.
+        None. You cannot pipe input to `New-AMColumn`.
 
     .OUTPUTS
         System.Collections.Hashtable
         Returns a hashtable representing the Column element.
 
     .NOTES
-        Columns must be used within a ColumnSet. To create a multi-column layout:
-        1. Create individual columns using New-AMColumn
-        2. Combine them using New-AMColumnSet
-        3. Add the ColumnSet to your card with Add-AMElement
-
-        Width values can be:
-        - "auto" - Column uses minimum width needed for its content
-        - "stretch" - Column stretches to fill available width
-        - "pixel" value (e.g., "50px") - Fixed width in pixels
-        - Numeric proportion (e.g., "1", "2") - Relative width compared to other columns
+        - Columns must be used within a ColumnSet. To create a multi-column layout:
+          1. Create individual columns using `New-AMColumn`.
+          2. Combine them using `New-AMColumnSet`.
+          3. Add the ColumnSet to your card with `Add-AMElement`.
+        - Width values can be:
+          - "auto" - Column uses minimum width needed for its content.
+          - "stretch" - Column stretches to fill available width.
+          - Pixel value (e.g., "50px") - Fixed width in pixels.
+          - Numeric proportion (e.g., "1", "2") - Relative width compared to other columns.
 
     .LINK
         https://adaptivecards.io/explorer/Column.html
@@ -110,5 +111,3 @@ function New-AMColumn {
 
     return $column
 }
-
-Export-ModuleMember -Function New-AMColumn

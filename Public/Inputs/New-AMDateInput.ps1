@@ -4,9 +4,12 @@ function New-AMDateInput {
         Creates a Date Input element for an Adaptive Card.
 
     .DESCRIPTION
-        Creates an Input.Date element that allows users to select a date from a calendar interface.
-        Date inputs are used when you need to collect a specific date from users, such as
-        for scheduling events, setting deadlines, or specifying birthdates.
+        The `New-AMDateInput` function creates an Input.Date element that allows users to select a date from a calendar interface.
+        Date inputs are used when you need to collect a specific date from users, such as for scheduling events, setting deadlines,
+        or specifying birthdates.
+
+        The date input supports optional default values, placeholder text, and restrictions on the selectable date range
+        using minimum and maximum date parameters.
 
     .PARAMETER Id
         A unique identifier for the input element. This ID will be used when the card is submitted
@@ -46,18 +49,23 @@ function New-AMDateInput {
             -Placeholder "Enter your date of birth" `
             -Min "1900-01-01" -Max "2020-12-31"
 
+    .EXAMPLE
+        # Create a date input with no default value
+        $customDateInput = New-AMDateInput -Id "customDate" -Label "Custom Date:" -Value ""
+
     .INPUTS
-        None. You cannot pipe input to New-AMDateInput.
+        None. You cannot pipe input to `New-AMDateInput`.
 
     .OUTPUTS
         System.Collections.Hashtable
         Returns a hashtable representing the Input.Date element.
 
     .NOTES
-        Date inputs in Adaptive Cards will render differently depending on the client:
-        - In most clients, they appear as a text field with a calendar picker
-        - The format of the displayed date may vary by client or user locale
-        - The value submitted will always be in ISO 8601 format (YYYY-MM-DD)
+        - Date inputs in Adaptive Cards will render differently depending on the client:
+          - In most clients, they appear as a text field with a calendar picker.
+          - The format of the displayed date may vary by client or user locale.
+          - The value submitted will always be in ISO 8601 format (YYYY-MM-DD).
+        - Ensure that the `Min` and `Max` values are valid ISO 8601 dates and that `Min` is earlier than `Max`.
 
     .LINK
         https://adaptivecards.io/explorer/Input.Date.html
@@ -95,5 +103,3 @@ function New-AMDateInput {
 
     return $dateInput
 }
-
-Export-ModuleMember -Function New-AMDateInput

@@ -4,31 +4,35 @@ function Add-AMElement {
         Adds an element to an Adaptive Card.
 
     .DESCRIPTION
-        Adds an element directly to the card body or to a specific container within the card.
-        This function modifies the card in-place; there is no need to reassign the result.
+        The `Add-AMElement` function adds an element to an Adaptive Card. The element can be added directly
+        to the card body or to a specific container within the card. This function modifies the card in-place,
+        so there is no need to reassign the result.
 
-        The function handles adding elements to:
+        The function supports adding elements to:
         - The main card body
-        - Inside a container (by specifying ContainerId)
+        - Inside a container (by specifying `ContainerId`)
         - Inside a specific column in a ColumnSet (future functionality)
 
+        If the card body does not exist, it will be created automatically. However, containers must already
+        exist when referencing them by `ContainerId`.
+
     .PARAMETER Card
-        The Adaptive Card hashtable to add the element to.
+        The Adaptive Card hashtable to which the element will be added.
 
     .PARAMETER Element
         The element to add to the card. This should be a hashtable created by one of the
-        New-AM* functions such as New-AMTextBlock, New-AMImage, New-AMContainer, etc.
+        `New-AM*` functions such as `New-AMTextBlock`, `New-AMImage`, `New-AMContainer`, etc.
 
     .PARAMETER ContainerId
-        Optional. The ID of a container to add the element to. If specified, the element
-        will be added to the container's items collection rather than directly to the card body.
+        (Optional) The ID of a container to add the element to. If specified, the element
+        will be added to the container's `items` collection rather than directly to the card body.
 
     .PARAMETER ColumnId
-        Optional. The ID of a column within a container to add the element to. Only applicable
-        when ContainerId is also specified.
+        (Optional) The ID of a column within a container to add the element to. Only applicable
+        when `ContainerId` is also specified. (Future functionality)
 
     .EXAMPLE
-        # Add a text block directly to card body
+        # Add a text block directly to the card body
         $title = New-AMTextBlock -Text "Hello World" -Size "Large" -Weight "Bolder"
         Add-AMElement -Card $card -Element $title
 
@@ -55,21 +59,25 @@ function Add-AMElement {
         )
         Add-AMElement -Card $card -Element $factSet -ContainerId "info-section"
 
+    .EXAMPLE
+        # Add an image to the card body
+        $image = New-AMImage -Url "https://example.com/image.png" -AltText "Example Image"
+        Add-AMElement -Card $card -Element $image
+
     .INPUTS
         System.Collections.Hashtable
+        The `Card` and `Element` parameters must be hashtables.
 
     .OUTPUTS
-        None
+        None. The function modifies the card directly.
 
     .NOTES
-        This function modifies the card directly. It uses ArrayList operations to ensure
-        changes are reflected in the original card variable.
-
-        When adding elements to containers, make sure the container exists and has the
-        correct ID, otherwise an error will be thrown.
-
-        The function automatically creates the body array if it doesn't exist, but it
-        expects containers to already be present when referencing them by ID.
+        - This function modifies the card directly. It uses `ArrayList` operations to ensure
+          changes are reflected in the original card variable.
+        - When adding elements to containers, ensure the container exists and has the
+          correct ID; otherwise, an error will be thrown.
+        - The function automatically creates the `body` array if it doesn't exist, but it
+          expects containers to already be present when referencing them by `ContainerId`.
 
     .LINK
         https://adaptivecards.io/explorer/

@@ -4,7 +4,7 @@
     RootModule        = 'ActionableMessages.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '1.0.3'
+    ModuleVersion     = '1.0.4'
 
     # ID used to uniquely identify this module
     GUID              = 'd1e5c3f4-5e3b-4c2a-8c3b-5e3b4c2a8c3b'
@@ -48,7 +48,6 @@
     'build.ps1',
     'README.md',
     'LICENSE',
-    'docs/README.md',
     'docs/en-US/about_ActionableMessages.help.txt',
     'ActionableMessages.psd1',
     'ActionableMessages.psm1',

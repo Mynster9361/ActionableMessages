@@ -4,22 +4,23 @@ function New-AMShowCardAction {
         Creates a ShowCard Action for an Adaptive Card.
 
     .DESCRIPTION
-        Creates an Action.ShowCard element that reveals a nested card when clicked.
-        This action is useful for progressive disclosure of information - showing additional
-        details, forms, or content without navigating away from the current view or requiring
-        another HTTP request.
+        The `New-AMShowCardAction` function generates an `Action.ShowCard` element for an Adaptive Card.
+        This action reveals a nested card when the button is clicked. It is useful for progressive disclosure
+        of information, such as showing additional details, forms, or content without navigating away from
+        the current view or requiring another HTTP request.
+
+        If no card is provided, a default empty card will be created with basic properties.
 
     .PARAMETER Title
         The text to display on the action button that will reveal the card.
 
     .PARAMETER Id
-        Optional unique identifier for the action. If not specified, a new GUID will be
-        generated automatically. The ID can be useful when referencing this action from
-        other parts of your card.
+        (Optional) A unique identifier for the action. If not specified, a new GUID will be generated automatically.
+        The ID can be useful when referencing this action programmatically or from other parts of your card.
 
     .PARAMETER Card
-        Optional pre-configured card to show when the button is clicked. If not provided,
-        an empty card will be created with default properties.
+        (Optional) A pre-configured card to show when the button is clicked. If not provided, an empty card
+        with default properties will be created.
 
     .EXAMPLE
         # Create a ShowCard action with an empty card
@@ -37,12 +38,28 @@ function New-AMShowCardAction {
         Add-AMElement -Card $feedbackCard -Element (New-AMTextBlock -Text "Please provide your feedback:")
         Add-AMElement -Card $feedbackCard -Element (New-AMTextInput -Id "comments" -Placeholder "Type your comments here" -IsMultiline $true)
 
-        # Create submit button for the nested card
+        # Create a submit button for the nested card
         $submitAction = New-AMSubmitAction -Title "Submit Feedback" -Data @{ action = "feedback" }
         $actionSet = New-AMActionSet -Actions @($submitAction)
         Add-AMElement -Card $feedbackCard -Element $actionSet
 
         $feedbackAction = New-AMShowCardAction -Title "Provide Feedback" -Id "feedback-form" -Card $feedbackCard
+
+    .INPUTS
+        None. You cannot pipe input to `New-AMShowCardAction`.
+
+    .OUTPUTS
+        System.Collections.Hashtable
+        Returns a hashtable representing the `Action.ShowCard` element.
+
+    .NOTES
+        - `Action.ShowCard` is ideal for scenarios where you want to reveal additional information or forms
+          without requiring a new HTTP request or navigating away from the current card.
+        - If no card is provided, a default empty card will be created with basic properties.
+        - Nested cards created with `Action.ShowCard` are rendered inline within the parent card.
+
+    .LINK
+        https://adaptivecards.io/explorer/Action.ShowCard.html
     #>
     [CmdletBinding()]
     param (

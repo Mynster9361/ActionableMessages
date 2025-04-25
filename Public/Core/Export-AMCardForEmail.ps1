@@ -1,40 +1,43 @@
 function Export-AMCardForEmail {
     <#
     .SYNOPSIS
-        Exports an Adaptive Card as HTML email content for Microsoft Graph API.
+        Exports an Adaptive Card as HTML email content for Microsoft Graph API or other email systems.
 
     .DESCRIPTION
-        Prepares an Adaptive Card for sending via email by embedding it in HTML with the proper format
-        for Microsoft Graph API. The card is embedded as a JSON payload in a script tag with the
-        appropriate content type.
+        The `Export-AMCardForEmail` function prepares an Adaptive Card for sending via email by embedding it in HTML
+        with the proper format for Microsoft Graph API. The card is embedded as a JSON payload in a `<script>` tag
+        with the appropriate content type.
 
         The function provides two main output options:
-        1. HTML content only - suitable for use with any email sending mechanism
-        2. Complete Microsoft Graph API parameters object - ready to use with Graph API endpoints
+        1. HTML content only - suitable for use with any email sending mechanism.
+        2. Complete Microsoft Graph API parameters object - ready to use with Graph API endpoints.
 
         This enables seamless integration with either Microsoft Graph API or other email sending methods.
 
+        The function also supports fallback text for email clients that do not support Adaptive Cards, ensuring
+        compatibility across different email platforms.
+
     .PARAMETER Card
-        The Adaptive Card object to embed in the email. This should be a hashtable created using
-        New-AMCard and populated with elements using Add-AMElement.
+        The Adaptive Card object to embed in the email. This should be a hashtable created using `New-AMCard` and
+        populated with elements using `Add-AMElement`.
 
     .PARAMETER Subject
-        Optional email subject line. Default is "Adaptive Card Notification".
+        (Optional) The email subject line. Default is "Adaptive Card Notification".
 
     .PARAMETER FallbackText
-        Optional text to show in email clients that don't support Adaptive Cards.
+        (Optional) Text to show in email clients that don't support Adaptive Cards.
         Default is "This email contains an Adaptive Card. Please use Outlook to view it."
 
     .PARAMETER ToRecipients
-        Optional array of email addresses to send to. Required if CreateGraphParams is specified.
+        (Optional) An array of email addresses to send the email to. Required if `-CreateGraphParams` is specified.
 
     .PARAMETER CreateGraphParams
-        If specified, returns a complete Microsoft Graph API parameters object instead of just the HTML content.
-        This object can be directly used with Invoke-MgGraphRequest or other Graph API methods.
+        (Optional) If specified, returns a complete Microsoft Graph API parameters object instead of just the HTML content.
+        This object can be directly used with `Invoke-MgGraphRequest` or other Graph API methods.
 
     .PARAMETER SaveToSentItems
-        When used with -CreateGraphParams, controls whether the sent message is saved to Sent Items.
-        Default is $true.
+        (Optional) When used with `-CreateGraphParams`, controls whether the sent message is saved to Sent Items.
+        Default is `$true`.
 
     .EXAMPLE
         # Get HTML content for an email (for use with any email system)
@@ -78,22 +81,20 @@ function Export-AMCardForEmail {
 
     .INPUTS
         System.Collections.Hashtable
-        An Adaptive Card object created using New-AMCard and populated with elements.
+        An Adaptive Card object created using `New-AMCard` and populated with elements.
 
     .OUTPUTS
         System.String or System.Collections.Hashtable
-        Returns either HTML content (default) or a complete Graph API parameters object (with -CreateGraphParams).
+        - Returns HTML content as a string when `-CreateGraphParams` is not specified.
+        - Returns a Microsoft Graph API parameters object when `-CreateGraphParams` is specified.
 
     .NOTES
-        This function creates HTML that embeds an Adaptive Card for use with Microsoft Graph API or other email systems.
-        For the Adaptive Card to render correctly, the recipient must be using Outlook.
-
-        Adaptive Cards in emails are rendered by Outlook clients (desktop, web, and mobile). Other email
-        clients will display the fallback text instead.
-
-        When using with Microsoft Graph API, you will need appropriate authentication and permissions:
-        - Mail.Send permission for sending from your own mailbox
-        - Mail.Send.Shared for sending from a shared or delegated mailbox
+        - This function creates HTML that embeds an Adaptive Card for use with Microsoft Graph API or other email systems.
+        - For the Adaptive Card to render correctly, the recipient must be using Outlook (desktop, web, or mobile).
+        - Other email clients will display the fallback text instead of the Adaptive Card.
+        - When using Microsoft Graph API, ensure you have the appropriate permissions:
+          - `Mail.Send` for sending from your own mailbox.
+          - `Mail.Send.Shared` for sending from a shared or delegated mailbox.
 
     .LINK
         https://docs.microsoft.com/en-us/outlook/actionable-messages/
@@ -157,11 +158,11 @@ $cardJson
 
         # Create message parameters for Graph API
         $params = @{
-            Message = @{
+            Message         = @{
                 Subject = $Subject
-                Body = @{
+                Body    = @{
                     ContentType = "HTML"
-                    Content = $htmlContent
+                    Content     = $htmlContent
                 }
             }
             SaveToSentItems = $SaveToSentItems

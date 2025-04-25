@@ -4,9 +4,12 @@ function New-AMTextBlock {
         Creates a TextBlock element for an Adaptive Card.
 
     .DESCRIPTION
-        Creates a TextBlock element that displays formatted text within an Adaptive Card.
-        TextBlocks are the primary way to display text content and can be styled with
-        different sizes, weights, and colors. They can also support simple markdown formatting.
+        The `New-AMTextBlock` function creates a TextBlock element that displays formatted text within an Adaptive Card.
+        TextBlocks are the primary way to display text content and can be styled with different sizes, weights, and colors.
+        They also support simple markdown formatting for basic text styling.
+
+        TextBlocks are highly versatile and can be used for headings, body text, or labels. They can be configured
+        to wrap text, truncate long text, or display inline with other elements.
 
     .PARAMETER Text
         The text to display in the TextBlock. This can include simple markdown formatting
@@ -29,8 +32,8 @@ function New-AMTextBlock {
 
     .PARAMETER Wrap
         Specifies whether the text should wrap to multiple lines when it doesn't fit on a single line.
-        When set to $false, text that doesn't fit will be truncated.
-        Default: $true
+        When set to `$false`, text that doesn't fit will be truncated.
+        Default: `$true`
 
     .EXAMPLE
         # Create a simple text block
@@ -45,8 +48,12 @@ function New-AMTextBlock {
         # Create text with markdown formatting
         $markdownText = New-AMTextBlock -Text "Please **review** the [documentation](https://docs.example.com) before continuing."
 
+    .EXAMPLE
+        # Create a text block with wrapping disabled
+        $noWrapText = New-AMTextBlock -Text "This is a long line of text that will be truncated if it doesn't fit." -Wrap $false
+
     .INPUTS
-        None. You cannot pipe input to New-AMTextBlock.
+        None. You cannot pipe input to `New-AMTextBlock`.
 
     .OUTPUTS
         System.Collections.Hashtable
@@ -54,11 +61,11 @@ function New-AMTextBlock {
 
     .NOTES
         TextBlocks are the most common element in Adaptive Cards. Some best practices:
-
-        - Use different sizes and weights to create visual hierarchy
-        - Set Wrap to $true for longer text to ensure readability
-        - Use markdown sparingly for emphasis, but avoid complex formatting
-        - Consider using different colors to highlight important information
+        - Use different sizes and weights to create a visual hierarchy.
+        - Set `Wrap` to `$true` for longer text to ensure readability.
+        - Use markdown sparingly for emphasis, but avoid complex formatting.
+        - Consider using different colors to highlight important information.
+        - Test your cards in the target environment to ensure proper rendering.
 
     .LINK
         https://adaptivecards.io/explorer/TextBlock.html
@@ -82,5 +89,3 @@ function New-AMTextBlock {
 
     return $textBlock
 }
-
-Export-ModuleMember -Function New-AMTextBlock

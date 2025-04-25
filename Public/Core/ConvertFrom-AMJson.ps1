@@ -4,29 +4,31 @@ function ConvertFrom-AMJson {
         Converts an Adaptive Card JSON to PowerShell commands using the ActionableMessages module.
 
     .DESCRIPTION
-        Takes an Adaptive Card JSON string and generates the equivalent PowerShell commands
-        that would create the same card using the ActionableMessages module functions.
+        The `ConvertFrom-AMJson` function takes an Adaptive Card JSON string and generates equivalent PowerShell
+        commands that would create the same card using the ActionableMessages module functions.
 
         This function is useful for:
         - Converting existing Adaptive Cards to PowerShell code
         - Learning by example how to create complex cards
         - Migrating from other platforms that export Adaptive Cards as JSON
-        - Generating scripts from designer-created cards
+        - Generating reusable scripts from designer-created cards
 
-        The generated code follows best practices for the ActionableMessages module
-        and maintains proper nesting of elements within containers and column sets.
+        The generated code follows best practices for the ActionableMessages module and maintains proper nesting
+        of elements within containers, column sets, and other structures.
+
+        If the JSON contains unsupported element types, they will be commented in the output script for manual review.
 
     .PARAMETER Json
         The Adaptive Card JSON string to convert to PowerShell commands.
         This can be a complete Adaptive Card JSON object with schema, type, version, etc.
 
     .PARAMETER OutputPath
-        Optional. If specified, writes the generated PowerShell script to this file path
-        instead of returning it as a string.
+        (Optional) If specified, writes the generated PowerShell script to this file path instead of returning it
+        as a string.
 
     .PARAMETER GenerateId
-        Optional switch. When specified, generates new IDs for elements that don't have them,
-        which can be useful when you need to reference elements later in your code.
+        (Optional) When specified, generates new IDs for elements that don't have them. This can be useful when
+        you need to reference elements later in your code.
 
     .EXAMPLE
         # Convert JSON from a file and display the PowerShell commands
@@ -43,22 +45,26 @@ function ConvertFrom-AMJson {
         $response = Invoke-RestMethod -Uri "https://myapi.example.com/cards/template"
         $response.cardJson | ConvertFrom-AMJson
 
+    .EXAMPLE
+        # Convert JSON and generate new IDs for elements
+        $jsonContent = Get-Content -Path ".\card.json" -Raw
+        ConvertFrom-AMJson -Json $jsonContent -GenerateId
+
     .INPUTS
         System.String
+        Accepts a JSON string representing an Adaptive Card.
 
     .OUTPUTS
         System.String or None
-        Returns the generated PowerShell script as a string if no OutputPath is specified.
-        If OutputPath is specified, writes to the file and returns a confirmation message.
+        - Returns the generated PowerShell script as a string if no `OutputPath` is specified.
+        - If `OutputPath` is specified, writes the script to the file and returns a confirmation message.
 
     .NOTES
-        This function will attempt to handle all standard Adaptive Card elements and actions,
-        including TextBlocks, Images, ImageSets, Containers, ColumnSets, FactSets, Input elements,
-        and various action types.
-
-        If the JSON contains unsupported element types, they will be commented in the output script.
-
-        Variable names in the generated script are based on element types and IDs when available.
+        - This function supports all standard Adaptive Card elements and actions, including:
+          TextBlocks, Images, ImageSets, Containers, ColumnSets, FactSets, Input elements, and various action types.
+        - Unsupported element types will be commented in the output script for manual review.
+        - Variable names in the generated script are based on element types and IDs when available.
+        - The function ensures proper nesting of elements and maintains the structure of the original card.
 
     .LINK
         https://adaptivecards.io/explorer/
@@ -119,7 +125,8 @@ function ConvertFrom-AMJson {
 
                 if ($AsString) {
                     return "@(`n$($nextIndent)$($arrayItems -join ",`n$nextIndent")`n$indent)"
-                } else {
+                }
+                else {
                     return $arrayItems
                 }
             }
@@ -136,7 +143,8 @@ function ConvertFrom-AMJson {
                     }
                     $hashLines += "$indent}"
                     return $hashLines
-                } else {
+                }
+                else {
                     return $hashtable
                 }
             }
@@ -199,7 +207,8 @@ function ConvertFrom-AMJson {
             $cardParams = @()
             if ($CardObject.originator) {
                 $cardParams += "-OriginatorId `"$($CardObject.originator)`""
-            } else {
+            }
+            else {
                 $cardParams += "-OriginatorId `"Replace-Me-With-Your-OriginatorId`""
             }
             if ($CardObject.version) {
@@ -348,7 +357,8 @@ function ConvertFrom-AMJson {
                     # Add properly formatted hashtable to params separately
                     $params += "-Padding `"Custom`""
                     $params += "-CustomPadding $formattedPadding"
-                } else {
+                }
+                else {
                     $params += "-Padding `"$($Element.padding)`""
                 }
             }
@@ -401,7 +411,7 @@ function ConvertFrom-AMJson {
                                 }
 
                                 Add-ScriptLine "    (New-AMTextBlock $($textParams -join ' ')),"
-                             }
+                            }
                             Image {
                                 $imgParams = @("-Url `"$($item.url)`"")
 
@@ -430,7 +440,8 @@ function ConvertFrom-AMJson {
                                 foreach ($fact in $item.facts) {
                                     if ($fact -eq $item.facts[-1]) {
                                         $factParams += "(New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`")"
-                                    } else {
+                                    }
+                                    else {
                                         $factParams += "(New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`"),"
                                     }
                                 }
@@ -540,7 +551,8 @@ function ConvertFrom-AMJson {
             $csParams = @()
             if ($Element.id) {
                 $csParams += "-Id `"$($Element.id)`""
-            } else {
+            }
+            else {
                 $csParams += "-Id `"$($varName)`""
             }
             $csParams += "-Columns @($($columnVars -join ', '))"
@@ -560,7 +572,8 @@ function ConvertFrom-AMJson {
             foreach ($fact in $Element.facts) {
                 if ($fact -eq $Element.facts[-1]) {
                     Add-ScriptLine "    (New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`")"
-                } else {
+                }
+                else {
                     Add-ScriptLine "    (New-AMFact -Title `"$($fact.title)`" -Value `"$($fact.value)`"),"
                 }
             }
@@ -616,7 +629,8 @@ function ConvertFrom-AMJson {
                     foreach ($choice in $Element.choices) {
                         if ($choice -eq $Element.choices[-1]) {
                             Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`")"
-                        } else {
+                        }
+                        else {
                             Add-ScriptLine "    (New-AMChoice -Title `"$($choice.title)`" -Value `"$($choice.value)`"),"
                         }
                     }
@@ -710,7 +724,8 @@ function ConvertFrom-AMJson {
                         # Remove trailing comma from last item
                         $script:output = $script:output -replace ",\r\n$", "`r`n"
                         Add-ScriptLine "    )"
-                    } else {
+                    }
+                    else {
                         Add-ScriptLine "    'body' = @()"
                     }
 

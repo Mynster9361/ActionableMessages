@@ -16,6 +16,10 @@
 
 - Standarized code formatting with new vscode settings file
 
+### Feature
+
+- Made sure all docs is up to date and added platyps docs
+
 ## [1.0.3] - [2025-04-09]
 
 ### Added

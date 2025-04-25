@@ -4,25 +4,23 @@ function New-AMContainer {
         Creates a Container element for an Adaptive Card.
 
     .DESCRIPTION
-        Creates a Container element that can group and style multiple elements together.
-        Containers are fundamental building blocks for organizing content in Adaptive Cards,
-        allowing you to apply common styling, visibility settings, and padding to a group
-        of elements.
+        The `New-AMContainer` function creates a Container element that can group and style multiple elements together.
+        Containers are fundamental building blocks for organizing content in Adaptive Cards, allowing you to apply
+        common styling, visibility settings, and padding to a group of elements.
 
-        Containers can hold any combination of elements including text blocks, images,
-        other containers, column sets, and more.
+        Containers can hold any combination of elements, including text blocks, images, other containers, column sets, and more.
+        They are essential for creating structured and visually appealing Adaptive Cards.
 
     .PARAMETER Id
-        An optional unique identifier for the container. This ID can be used to reference
-        the container when adding elements to it or when targeting it with visibility
-        toggle actions.
+        (Optional) A unique identifier for the container. This ID can be used to reference the container when adding
+        elements to it or when targeting it with visibility toggle actions.
 
     .PARAMETER Items
-        An array of elements to place inside the container. These should be created using
-        other New-AM* functions like New-AMTextBlock, New-AMImage, etc.
+        (Optional) An array of elements to place inside the container. These should be created using other `New-AM*`
+        functions like `New-AMTextBlock`, `New-AMImage`, etc.
 
     .PARAMETER Style
-        Optional styling to apply to the container.
+        (Optional) Styling to apply to the container.
         Valid values:
         - "default": Standard container with no special styling
         - "emphasis": Container with background color for emphasis
@@ -31,24 +29,25 @@ function New-AMContainer {
         - "warning": Container styled to indicate warning or caution
 
     .PARAMETER IsVisible
-        Optional boolean that controls whether the container is initially visible.
-        When set to $false, the container will be hidden until shown by a toggle action.
+        (Optional) Boolean that controls whether the container is initially visible.
+        When set to `$false`, the container will be hidden until shown by a toggle action.
+        Default: `$true`
 
     .PARAMETER Padding
-        Optional spacing to apply around the container contents.
+        (Optional) Spacing to apply around the container contents.
         Valid values: "None", "Small", "Default", "Medium", "Large", "ExtraLarge", "Custom"
         Default: "None"
 
-        When set to "Custom", the CustomPadding parameter is used instead.
+        When set to "Custom", the `CustomPadding` parameter is used instead.
 
     .PARAMETER CustomPadding
-        A hashtable that specifies different padding values for each side of the container.
-        Only used when Padding is set to "Custom".
+        (Optional) A hashtable that specifies different padding values for each side of the container.
+        Only used when `Padding` is set to "Custom".
 
-        The hashtable can include these keys: top, bottom, left, right
-        Each value must be one of: "None", "Small", "Default", "Medium", "Large", "ExtraLarge"
+        The hashtable can include these keys: `top`, `bottom`, `left`, `right`.
+        Each value must be one of: "None", "Small", "Default", "Medium", "Large", "ExtraLarge".
 
-        Example: @{top="None"; bottom="Default"; left="Default"; right="Default"}
+        Example: `@{top="None"; bottom="Default"; left="Default"; right="Default"}`
 
     .EXAMPLE
         # Create a simple container with text
@@ -99,21 +98,19 @@ function New-AMContainer {
         Add-AMElement -Card $card -Element $container
 
     .INPUTS
-        None. You cannot pipe input to New-AMContainer.
+        None. You cannot pipe input to `New-AMContainer`.
 
     .OUTPUTS
         System.Collections.Hashtable
         Returns a hashtable representing the Container element.
 
     .NOTES
-        Containers are one of the most versatile elements in Adaptive Cards. They help with:
-        - Grouping related content together
-        - Applying consistent styling to multiple elements
-        - Creating expandable/collapsible sections with toggle visibility
-        - Organizing card layout into logical sections
-
-        To add elements to an existing container, use the Add-AMElement function with
-        the -ContainerId parameter.
+        - Containers are one of the most versatile elements in Adaptive Cards. They help with:
+          - Grouping related content together
+          - Applying consistent styling to multiple elements
+          - Creating expandable/collapsible sections with toggle visibility
+          - Organizing card layout into logical sections
+        - To add elements to an existing container, use the `Add-AMElement` function with the `-ContainerId` parameter.
 
     .LINK
         https://adaptivecards.io/explorer/Container.html
