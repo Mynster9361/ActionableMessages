@@ -106,7 +106,7 @@ function New-AMTextInput {
 
     $input = [ordered]@{
         'type' = 'Input.Text'
-        'id' = $Id
+        'id'   = $Id
     }
 
     if ($Label) { $input.label = $Label }

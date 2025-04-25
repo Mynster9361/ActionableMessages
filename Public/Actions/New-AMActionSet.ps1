@@ -65,9 +65,9 @@ function New-AMActionSet {
 
     # Create the ActionSet object
     $actionSet = [ordered]@{
-        'type' = 'ActionSet'
+        'type'    = 'ActionSet'
         'actions' = $Actions  # Directly assign the array
-        'id' = $Id
+        'id'      = $Id
     }
 
     # Add optional padding

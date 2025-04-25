@@ -94,8 +94,8 @@ function New-AMExecuteAction {
 
     # Create the basic action object - Note type is Action.Http not Action.Execute for ActionableMessages
     $action = [ordered]@{
-        'type' = 'Action.Http'
-        'title' = $Title
+        'type'   = 'Action.Http'
+        'title'  = $Title
         'method' = $Verb  # 'method' is the correct property name, not 'verb'
     }
 

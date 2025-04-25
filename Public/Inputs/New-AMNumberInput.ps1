@@ -76,12 +76,12 @@ function New-AMNumberInput {
     )
 
     $input = @{
-        type       = 'Input.Number'
-        id         = $Id
-        max        = $Max
-        min        = $Min
+        type        = 'Input.Number'
+        id          = $Id
+        max         = $Max
+        min         = $Min
         placeholder = $Placeholder
-        value      = $Value
+        value       = $Value
     }
 
     return $input

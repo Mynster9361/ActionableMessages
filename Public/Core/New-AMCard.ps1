@@ -109,15 +109,15 @@ function New-AMCard {
     )
 
     $card = [ordered]@{
-        '$schema' = "http://adaptivecards.io/schemas/adaptive-card.json"
-        'version' = $Version
-        'originator' = $OriginatorId
+        '$schema'          = "http://adaptivecards.io/schemas/adaptive-card.json"
+        'version'          = $Version
+        'originator'       = $OriginatorId
         'hideOriginalBody' = $HideOriginalBody
-        '@type' = 'AdaptiveCard'
-        '@context' = "http://schema.org/extensions"
-        'padding' = $Padding
-        'body' = [System.Collections.ArrayList]@()
-        'actions' = [System.Collections.ArrayList]@()
+        '@type'            = 'AdaptiveCard'
+        '@context'         = "http://schema.org/extensions"
+        'padding'          = $Padding
+        'body'             = [System.Collections.ArrayList]@()
+        'actions'          = [System.Collections.ArrayList]@()
     }
 
     # Add optional properties only if they're specified

@@ -71,10 +71,10 @@ function New-AMShowCardAction {
     }
 
     $action = [ordered]@{
-        'type' = 'Action.ShowCard'
-        'id' = $Id
+        'type'  = 'Action.ShowCard'
+        'id'    = $Id
         'title' = $Title
-        'card' = $Card
+        'card'  = $Card
     }
 
     return $action

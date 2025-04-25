@@ -90,13 +90,13 @@ function New-AMToggleInput {
     )
 
     $toggleInput = @{
-        type = "Input.Toggle"
-        id = $id
-        title = $title
-        value = $value
-        valueOn = $valueOn
+        type     = "Input.Toggle"
+        id       = $id
+        title    = $title
+        value    = $value
+        valueOn  = $valueOn
         valueOff = $valueOff
-        style = $style
+        style    = $style
     }
 
     return $toggleInput

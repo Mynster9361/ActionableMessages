@@ -83,10 +83,10 @@ function New-AMDateInput {
     )
 
     $dateInput = @{
-        type = "Input.Date"
-        id = $Id
-        label = $Label
-        value = $Value
+        type        = "Input.Date"
+        id          = $Id
+        label       = $Label
+        value       = $Value
         placeholder = $Placeholder
     }
 

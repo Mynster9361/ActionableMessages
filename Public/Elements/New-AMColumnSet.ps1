@@ -94,8 +94,8 @@ function New-AMColumnSet {
     )
 
     $columnSet = @{
-        type = "ColumnSet"
-        id = $Id
+        type    = "ColumnSet"
+        id      = $Id
         columns = @()
     }
 

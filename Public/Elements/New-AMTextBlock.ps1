@@ -72,12 +72,12 @@ function New-AMTextBlock {
     )
 
     $textBlock = @{
-        type = "TextBlock"
-        text = $Text
-        size = $Size
+        type   = "TextBlock"
+        text   = $Text
+        size   = $Size
         weight = $Weight
-        color = $Color
-        wrap = $Wrap
+        color  = $Color
+        wrap   = $Wrap
     }
 
     return $textBlock

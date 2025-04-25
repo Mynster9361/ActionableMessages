@@ -125,10 +125,10 @@ function New-AMChoiceSetInput {
     )
 
     $choiceSet = [ordered]@{
-        'type' = 'Input.ChoiceSet'
-        'id' = $Id
-        'choices' = $Choices
-        'style' = $Style
+        'type'          = 'Input.ChoiceSet'
+        'id'            = $Id
+        'choices'       = $Choices
+        'style'         = $Style
         'isMultiSelect' = $IsMultiSelect
     }
 

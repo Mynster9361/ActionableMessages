@@ -81,11 +81,11 @@ function New-AMImage {
     }
 
     return @{
-        type = "Image"
-        url = $Url
+        type    = "Image"
+        url     = $Url
         altText = $AltText
-        size = $Size
-        style = $Style
+        size    = $Size
+        style   = $Style
     }
 }
 

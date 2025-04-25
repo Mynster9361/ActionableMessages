@@ -112,7 +112,8 @@ function Add-AMElement {
             # Add element to container's items
             if ($foundContainer['items'] -is [System.Collections.ArrayList]) {
                 [void]$foundContainer['items'].Add($Element)
-            } else {
+            }
+            else {
                 # Convert to ArrayList if not already
                 $newItems = [System.Collections.ArrayList]@()
                 if ($foundContainer['items']) {
@@ -123,14 +124,17 @@ function Add-AMElement {
                 [void]$newItems.Add($Element)
                 $foundContainer['items'] = $newItems
             }
-        } else {
+        }
+        else {
             throw "Container with ID '$ContainerId' not found"
         }
-    } else {
+    }
+    else {
         # Add directly to card body using ArrayList method
         if ($Card['body'] -is [System.Collections.ArrayList]) {
             [void]$Card['body'].Add($Element)
-        } else {
+        }
+        else {
             # Convert to ArrayList if not already
             $newBody = [System.Collections.ArrayList]@()
             if ($Card['body']) {

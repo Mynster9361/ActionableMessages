@@ -2,7 +2,7 @@
 # This file loads all the individual function files
 
 # Get all public and private function definition files
-$publicFolders = @('Core', 'Elements', 'Actions', 'Inputs')
+$publicFolders = @('Core', 'Elements', 'Actions', 'Inputs', 'Prebuilt')
 $publicFunctions = @()
 foreach ($folder in $publicFolders) {
     $folderPath = Join-Path -Path $PSScriptRoot -ChildPath "Public\$folder"

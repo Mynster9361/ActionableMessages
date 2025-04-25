@@ -78,10 +78,10 @@ function New-AMOpenUrlAction {
     )
 
     $action = [ordered]@{
-        'type' = 'Action.OpenUrl'
-        'id' = $Id
+        'type'  = 'Action.OpenUrl'
+        'id'    = $Id
         'title' = $Title
-        'url' = $Url
+        'url'   = $Url
     }
 
     if ($Tooltip) {

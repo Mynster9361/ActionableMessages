@@ -102,10 +102,10 @@ function New-AMColumn {
     )
 
     $column = @{
-        type = "Column"
-        width = $Width
+        type                     = "Column"
+        width                    = $Width
         verticalContentAlignment = $VerticalContentAlignment
-        items = $Items
+        items                    = $Items
     }
 
     return $column

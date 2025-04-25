@@ -135,15 +135,15 @@ function New-AMContainer {
 
         [Parameter()]
         [ValidateSet("None", "Small", "Default", "Medium", "Large", "ExtraLarge", "Custom")]
-        [string]$Padding = "None",  # Default to "None" to match desired output
+        [string]$Padding = "None", # Default to "None" to match desired output
 
         [Parameter()]
         [hashtable]$CustomPadding = @{}  # Custom padding as a hashtable for more flexibility example @{top=None; bottom=Default; left=Default; right=Default}
     )
 
     $container = [ordered]@{
-        'type' = 'Container'
-        'id' = $Id
+        'type'  = 'Container'
+        'id'    = $Id
         'items' = @()
     }
     if ($Padding -eq "Custom") {
@@ -155,7 +155,8 @@ function New-AMContainer {
             }
         }
         $container.padding = $CustomPadding
-    } else {
+    }
+    else {
         $container.padding = $Padding
     }
 

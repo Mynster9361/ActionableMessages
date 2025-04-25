@@ -79,12 +79,12 @@ function New-AMTimeInput {
     )
 
     $timeInput = @{
-        type       = "Input.Time"
-        id         = $id
-        title      = $title
-        value      = $value
+        type        = "Input.Time"
+        id          = $id
+        title       = $title
+        value       = $value
         placeholder = $placeholder
-        style      = $style
+        style       = $style
     }
     Write-Warning "New-AMTimeInput - This item is not supported in all outlook clients. Currently only supported in Outlook on the web."
     return $timeInput

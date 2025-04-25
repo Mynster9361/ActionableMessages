@@ -75,7 +75,7 @@ function New-AMFactSet {
     )
 
     $factSet = [ordered]@{
-        'type' = 'FactSet'
+        'type'  = 'FactSet'
         'facts' = $Facts
     }
 

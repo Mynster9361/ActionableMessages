@@ -87,9 +87,9 @@ function New-AMToggleVisibilityAction {
     )
 
     $action = [ordered]@{
-        'type' = 'Action.ToggleVisibility'
-        'id' = $Id
-        'title' = $Title
+        'type'           = 'Action.ToggleVisibility'
+        'id'             = $Id
+        'title'          = $Title
         'targetElements' = $TargetElements
     }
 

@@ -66,14 +66,14 @@ function New-AMImageSet {
     )
 
     $imageSet = @{
-        type = "ImageSet"
-        images = @()
+        type    = "ImageSet"
+        images  = @()
         altText = $AltText
     }
 
     foreach ($image in $Images) {
         $imageSet.images += @{
-            url = $image
+            url     = $image
             altText = $AltText
         }
     }
