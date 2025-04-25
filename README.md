@@ -75,52 +75,67 @@ The module is organized into logical function categories:
 - **Elements**: Visual components like text, images, containers, etc.
 - **Actions**: Interactive components like buttons and links
 - **Inputs**: Form elements for collecting user input
+- **Prebuilt**: Ready-to-use Adaptive Cards for common scenarios.
 
 ## Function Reference
 
 ### Core Functions
 
-| Function | Description |
-|----------|-------------|
-| `New-AMCard` | Creates a new Adaptive Card |
-| `Add-AMElement` | Adds an element to a card or container |
-| `Export-AMCard` | Exports a card as JSON |
-| `Export-AMCardForEmail` | Prepares a card for email delivery |
+| Function                | Description                            |
+| ----------------------- | -------------------------------------- |
+| `New-AMCard`            | Creates a new Adaptive Card            |
+| `Add-AMElement`         | Adds an element to a card or container |
+| `Export-AMCard`         | Exports a card as JSON                 |
+| `Export-AMCardForEmail` | Prepares a card for email delivery     |
 
 ### Element Functions
 
-| Function | Description |
-|----------|-------------|
-| `New-AMTextBlock` | Creates text content |
-| `New-AMImage` | Adds an image |
-| `New-AMImageSet` | Creates a collection of images |
-| `New-AMContainer` | Groups elements together |
-| `New-AMColumnSet` | Creates a multi-column layout |
-| `New-AMColumn` | Defines a column within a ColumnSet |
-| `New-AMFactSet` | Creates a list of facts (key-value pairs) |
-| `New-AMFact` | Creates a single fact (key-value pair) |
-| `New-AMActionSet` | Groups actions together |
+| Function          | Description                               |
+| ----------------- | ----------------------------------------- |
+| `New-AMTextBlock` | Creates text content                      |
+| `New-AMImage`     | Adds an image                             |
+| `New-AMImageSet`  | Creates a collection of images            |
+| `New-AMContainer` | Groups elements together                  |
+| `New-AMColumnSet` | Creates a multi-column layout             |
+| `New-AMColumn`    | Defines a column within a ColumnSet       |
+| `New-AMFactSet`   | Creates a list of facts (key-value pairs) |
+| `New-AMFact`      | Creates a single fact (key-value pair)    |
+| `New-AMActionSet` | Groups actions together                   |
 
 ### Action Functions
 
-| Function | Description |
-|----------|-------------|
-| `New-AMOpenUrlAction` | Creates a button that opens a URL |
-| `New-AMExecuteAction` | Creates a button that calls an API |
-| `New-AMShowCardAction` | Creates a button that reveals another card |
+| Function                       | Description                                |
+| ------------------------------ | ------------------------------------------ |
+| `New-AMOpenUrlAction`          | Creates a button that opens a URL          |
+| `New-AMExecuteAction`          | Creates a button that calls an API         |
+| `New-AMShowCardAction`         | Creates a button that reveals another card |
 | `New-AMToggleVisibilityAction` | Creates a button that shows/hides elements |
 
 ### Input Functions
 
-| Function | Description |
-|----------|-------------|
-| `New-AMTextInput` | Creates a text field |
-| `New-AMNumberInput` | Creates a numeric input field |
-| `New-AMDateInput` | Creates a date picker |
-| `New-AMTimeInput` | Creates a time picker |
-| `New-AMToggleInput` | Creates a checkbox/toggle switch |
+| Function               | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `New-AMTextInput`      | Creates a text field                     |
+| `New-AMNumberInput`    | Creates a numeric input field            |
+| `New-AMDateInput`      | Creates a date picker                    |
+| `New-AMTimeInput`      | Creates a time picker                    |
+| `New-AMToggleInput`    | Creates a checkbox/toggle switch         |
 | `New-AMChoiceSetInput` | Creates a dropdown or radio button group |
-| `New-AMChoice` | Creates an option for a ChoiceSetInput |
+| `New-AMChoice`         | Creates an option for a ChoiceSetInput   |
+
+### Prebuilt Functions
+
+| Function                           | Description                                  |
+| ---------------------------------- | -------------------------------------------- |
+| `New-AMAccountVerificationCard`    | Creates a card for account verification      |
+| `New-AMApprovalCard`               | Creates a card for approval workflows        |
+| `New-AMITResourceRequestCard`      | Creates a card for IT resource requests      |
+| `New-AMNotificationCard`           | Creates a card for system notifications      |
+| `New-AMServiceAlertCard`           | Creates a card for service alerts            |
+| `New-AMServerMonitoringCard`       | Creates a card for server monitoring         |
+| `New-AMFeedbackFormCard`           | Creates a card for collecting feedback       |
+| `New-AMDiskSpaceAlertCard`         | Creates a card for disk space alerts         |
+| `New-AMApplicationUsageSurveyCard` | Creates a card for application usage surveys |
 
 ## Examples
 
@@ -128,79 +143,46 @@ The module is organized into logical function categories:
 
 ```powershell
 # Create approval card
-$card = New-AMCard -OriginatorId "your-originator-id" -Version "1.2"
+$card = New-AMApprovalCard -OriginatorId "leave-approval-system" -Title "Leave Request Approval" `
+    -RequestID "REQ-2023-002" -Requester "Jane Smith" `
+    -Description "Approval is required for a leave request from Jane Smith." `
+    -ApproveUrl "https://api.example.com/approve" -RejectUrl "https://api.example.com/reject"
 
-# Add header
-Add-AMElement -Card $card -Element (New-AMTextBlock -Text "Expense Report Approval" -Size "Large" -Weight "Bolder")
-
-# Add expense details
-$facts = @(
-    New-AMFact -Title "Employee" -Value "John Smith"
-    New-AMFact -Title "Report #" -Value "EXP-2023-0456"
-    New-AMFact -Title "Amount" -Value "`$1,245.78"
-    New-AMFact -Title "Date" -Value "2023-10-15"
-    New-AMFact -Title "Purpose" -Value "Client Meeting"
-)
-$factSet = New-AMFactSet -Facts $facts
-Add-AMElement -Card $card -Element $factSet
-
-# Add comment field
-$comment = New-AMTextInput -Id "comment" -Label "Comments (optional):" -IsMultiline $true
-Add-AMElement -Card $card -Element $comment
-
-# Add approve/reject buttons
-$approveAction = New-AMExecuteAction -Title "Approve" -Verb "POST" -Url "https://api.example.com/approve" -Body '{"Action": "approve","reportId": "EXP-2023-0456"}'
-$rejectAction = New-AMExecuteAction -Title "Reject" -Verb "POST" -Url "https://api.example.com/reject" -Body '{"Action": "reject","reportId": "EXP-2023-0456"}'
-$actionSet = New-AMActionSet -Id "approval-actions" -Actions @($approveAction, $rejectAction)
-Add-AMElement -Card $card -Element $actionSet
+# Export the card for email
+Export-AMCardForEmail -Card $card -Subject "Leave Request Approval" -ToRecipients "manager@example.com"
 ```
 
 ### Feedback Form Card
 
 ```powershell
 # Create feedback form card
-$card = New-AMCard -OriginatorId "your-originator-id" -Version "1.2"
+$card = New-AMFeedbackFormCard -Title "Customer Feedback" `
+    -ResponseEndpoint "https://api.example.com/feedback"
 
-# Add header
-Add-AMElement -Card $card -Element (New-AMTextBlock -Text "Customer Feedback" -Size "Large" -Weight "Bolder")
-
-# Create rating input
-$ratingChoices = @(
-    New-AMChoice -Title "★★★★★ Excellent" -Value "5"
-    New-AMChoice -Title "★★★★☆ Very Good" -Value "4"
-    New-AMChoice -Title "★★★☆☆ Good" -Value "3"
-    New-AMChoice -Title "★★☆☆☆ Fair" -Value "2"
-    New-AMChoice -Title "★☆☆☆☆ Poor" -Value "1"
-)
-$ratingInput = New-AMChoiceSetInput -Id "rating" -Label "How would you rate our service?" -Choices $ratingChoices -Style "expanded"
-Add-AMElement -Card $card -Element $ratingInput
-
-# Add comment field
-$feedback = New-AMTextInput -Id "comments" -Label "Additional Comments:" -IsMultiline $true
-Add-AMElement -Card $card -Element $feedback
-
-# Add submit button
-$submitAction = New-AMExecuteAction -Title "Submit Feedback" -Verb "POST" -Url "https://api.example.com/feedback"
-$actionSet = New-AMActionSet -Id "feedback-actions" -Actions @($submitAction)
-Add-AMElement -Card $card -Element $actionSet
+# Export the card for email
+Export-AMCardForEmail -Card $card -Subject "We Value Your Feedback" -ToRecipients "feedback@example.com"
 ```
 
 ## Best Practices
 
 ### Security
+
 - Register your originator ID with Microsoft before deploying to production (https://aka.ms/publishactionableemails)
 
 ### Design Considerations
+
 - Keep cards focused on a single task or piece of information
 - Use clear, concise language for buttons and instructions
 - Test your cards in different Outlook clients (desktop, web, mobile)
 - Provide fallback text for email clients that don't support Adaptive Cards
 
 ### Performance
+
 - Use the `-Compress` parameter with `Export-AMCard` for production deployments
 - Keep image sizes small to ensure quick loading
 
 ### Accessibility
+
 - Always include alt text for images
 - Use appropriate color contrast
 - Ensure all interactive elements have clear labels
@@ -219,7 +201,6 @@ Before using Actionable Messages in production, you must register your originato
 - [Adaptive Cards Documentation](https://adaptivecards.io/)
 - [Outlook Actionable Messages Documentation](https://learn.microsoft.com/en-us/outlook/actionable-messages/)
 - [Adaptive Cards Designer](https://adaptivecards.io/designer/)
-
 
 ## License
 
