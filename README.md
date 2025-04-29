@@ -31,27 +31,25 @@ Import-Module ActionableMessages
 
 ## Key Concepts
 
-### Adaptive Cards
-
-Adaptive Cards are platform-agnostic card objects that automatically adapt to the host application's look and feel. They provide a rich way to present information and gather input from users.
-
 ### Actionable Messages
 
 Actionable Messages add interactive capabilities to emails, allowing recipients to take actions without leaving their inbox. These actions can include opening URLs, submitting data, or triggering server-side processes.
 
 ## Basic Usage
 
-### Creating a Simple Card
+### Creating a Simple Notification Card
+
+![Notification Card](docs/assets/img/cards/notification.png)
 
 ```powershell
 # Import the module
 Import-Module ActionableMessages
 
 # Create a new card
-$card = New-AMCard -OriginatorId "your-originator-id" -Version "1.2"
+$card = New-AMCard -OriginatorId "your-originator-id"
 
 # Add a title
-$title = New-AMTextBlock -Text "Notification Title" -Size "Large" -Weight "Bolder"
+$title = New-AMTextBlock -Text "Notification Title" -Size "Large" -Weight "Bolder" -Color "Accent"
 Add-AMElement -Card $card -Element $title
 
 # Add content
@@ -59,13 +57,131 @@ $message = New-AMTextBlock -Text "This is an important notification." -Wrap $tru
 Add-AMElement -Card $card -Element $message
 
 # Add an action button
-$action = New-AMOpenUrlAction -Title "Learn More" -Url "https://example.com/details"
+$action = New-AMOpenUrlAction -Title "Learn More" -Url "https://mynster9361.github.io/posts/ActionableMessagesModuleWhatsNew/"
 $actionSet = New-AMActionSet -Id "actions" -Actions @($action)
 Add-AMElement -Card $card -Element $actionSet
 
 # Export the card for email
 $emailParams = Export-AMCardForEmail -Card $card -Subject "Important Notification" -ToRecipients "user@example.com"
 ```
+
+## Advanced Examples
+
+Here are some additional prebuilt cards for more specific use cases. These examples demonstrate the flexibility of the module for creating interactive emails.
+
+![Event Invitation Card](docs/assets/img/cards/event_invite.png)
+
+### Event Invitation Card
+
+```powershell
+# Create a new card
+$card = New-AMCard -OriginatorId "your-originator-id"
+
+# Add event title
+$title = New-AMTextBlock -Text "Event Invitation" -Size "ExtraLarge" -Weight "Bolder" -Color "Accent"
+Add-AMElement -Card $card -Element $title
+
+# Add event details
+$eventFacts = @(
+    New-AMFact -Title "Event" -Value "Quarterly Business Review"
+    New-AMFact -Title "Date" -Value "$((Get-Date).AddDays(7).ToString('MMMM dd, yyyy'))"
+    New-AMFact -Title "Time" -Value "10:00 AM - 12:00 PM"
+    New-AMFact -Title "Location" -Value "Conference Room A / Teams Meeting"
+    New-AMFact -Title "Organizer" -Value "John Smith"
+)
+$factSet = New-AMFactSet -Facts $eventFacts
+Add-AMElement -Card $card -Element $factSet
+
+# Add RSVP options
+$attendanceChoices = @(
+    New-AMChoice -Title "Yes, I'll attend in person" -Value "in-person"
+    New-AMChoice -Title "Yes, I'll attend virtually" -Value "virtual"
+    New-AMChoice -Title "No, I can't attend" -Value "decline"
+)
+$attendanceInput = New-AMChoiceSetInput -Id "attendance" -Label "Will you attend?" -Choices $attendanceChoices -Style "expanded"
+Add-AMElement -Card $card -Element $attendanceInput
+
+# Add submit button
+$submitAction = New-AMExecuteAction -Title "Submit RSVP" -Verb "POST" -Url "https://api.example.com/rsvp" -Body '{"response": "{{attendance.value}}"}'
+$actionSet = New-AMActionSet -Actions @($submitAction)
+Add-AMElement -Card $card -Element $actionSet
+
+# Export the card for email
+$emailParams = Export-AMCardForEmail -Card $card -Subject "Event Invitation" -ToRecipients "user@example.com"
+
+```
+
+### Disk Space Alert Card
+
+![Disk Alert Card](docs/assets/img/cards/disk_alert.png)
+
+```powershell
+# Create a new card
+$card = New-AMCard -OriginatorId "your-originator-id"
+
+# Add header
+$header = New-AMTextBlock -Text "Critical Disk Space Alert" -Size "Large" -Weight "Bolder" -Color "Attention"
+Add-AMElement -Card $card -Element $header
+
+# Add server details
+$serverFacts = @(
+    New-AMFact -Title "Server" -Value "SQLSRV01"
+    New-AMFact -Title "Drive" -Value "D:\"
+    New-AMFact -Title "Free Space" -Value "15 GB (3%)"
+    New-AMFact -Title "Threshold" -Value "10%"
+)
+$factSet = New-AMFactSet -Facts $serverFacts
+Add-AMElement -Card $card -Element $factSet
+
+# Add action buttons
+$cleanupAction = New-AMExecuteAction -Title "Run Cleanup Script" -Verb "POST" -Url "https://api.example.com/cleanup"
+$acknowledgeAction = New-AMExecuteAction -Title "Acknowledge" -Verb "POST" -Url "https://api.example.com/acknowledge"
+$actionSet = New-AMActionSet -Actions @($cleanupAction, $acknowledgeAction)
+Add-AMElement -Card $card -Element $actionSet
+
+# Export the card for email
+$emailParams = Export-AMCardForEmail -Card $card -Subject "Disk Space Alert" -ToRecipients "admin@example.com"
+```
+
+## Wan to see more examples of the new prebuilt cards?
+
+Check out this blog post:
+
+[Prebuilt Cards](https://mynster9361.github.io/posts/ActionableMessagesModuleWhatsNew/)
+
+Just to give a couple of examples:
+
+`New-AMApprovalCard`
+
+![New-AMApprovalCard](docs/assets/img/cards/New-AMApprovalCard.png)
+
+`New-AMNotificationCard`
+
+![New-AMNotificationCard](docs/assets/img/cards/New-AMNotificationCard.png)
+
+`New-AMDiskSpaceAlertCard`
+
+![New-AMDiskSpaceAlertCard](docs/assets/img/cards/New-AMDiskSpaceAlertCard.png)
+
+`New-AMServerMonitoringCard`
+
+![New-AMServerMonitoringCard](docs/assets/img/cards/New-AMServerMonitoringCard.png)
+
+`New-AMServiceAlertCard`
+
+![New-AMServiceAlertCard](docs/assets/img/cards/New-AMServiceAlertCard.png)
+
+`New-AMITResourceRequestCard`
+
+![New-AMITResourceRequestCard](docs/assets/img/cards/New-AMITResourceRequestCard.png)
+
+`New-AMApplicationUsageSurveyCard`
+
+![New-AMApplicationUsageSurveyCard](docs/assets/img/cards/New-AMApplicationUsageSurveyCard.png)
+
+`New-AMServerPurposeSurveyCard`
+
+![New-AMServerPurposeSurveyCard](docs/assets/img/cards/New-AMServerPurposeSurveyCard.png)
 
 ## Module Structure
 
@@ -198,9 +314,16 @@ Before using Actionable Messages in production, you must register your originato
 
 ## Additional Resources
 
+- [Actionable Messages Documentation](https://mynster9361.github.io/modules/actionablemessages/)
 - [Adaptive Cards Documentation](https://adaptivecards.io/)
 - [Outlook Actionable Messages Documentation](https://learn.microsoft.com/en-us/outlook/actionable-messages/)
 - [Adaptive Cards Designer](https://adaptivecards.io/designer/)
+
+## Blog posts
+
+- [Prebuilt Cards](https://mynster9361.github.io/posts/ActionableMessagesModuleWhatsNew/)
+- [Building Interactive Emails](https://mynster9361.github.io/posts/ActionableMessagesModule/)
+- [Sending Actionable Messages without this module](https://mynster9361.github.io/posts/ActionableMessages/)
 
 ## License
 
