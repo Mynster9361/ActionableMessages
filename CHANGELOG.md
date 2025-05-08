@@ -3,7 +3,7 @@
 ### Added
 
 - Added new cmdlet which lets you view how a card is constructed
-- - Show-AMCardPreview
+- - Show-AMCardPreview.
 
 ### Fixed
 
