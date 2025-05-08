@@ -1,9 +1,11 @@
-## [1.0.5] - [2025-05-08]
+## [1.0.6] - [2025-05-08]
 
 ### Added
 
 - Added new cmdlet which lets you view how a card is constructed
 - - Show-AMCardPreview.
+
+## [1.0.5] - [2025-05-08]
 
 ### Fixed
 
