@@ -1,3 +1,14 @@
+## [1.0.5] - [2025-05-08]
+
+### Added
+
+- Added new cmdlet which lets you view how a card is constructed
+- - Show-AMCardPreview
+
+### Fixed
+
+- Authorization header which was needed to be blank by default in executeaction cmdlet
+
 ## [1.0.4] - [2025-04-25]
 
 ### Added
