@@ -105,9 +105,21 @@ function New-AMExecuteAction {
 
     # Create the basic action object - Note type is Action.Http not Action.Execute for ActionableMessages
     $action = [ordered]@{
-        'type'   = 'Action.Http'
-        'title'  = $Title
-        'method' = $Verb  # 'method' is the correct property name, not 'verb'
+        'type'    = 'Action.Http'
+        'title'   = $Title
+        'method'  = $Verb  # 'method' is the correct property name, not 'verb'
+        <#
+        headers is needed in the following format
+        "headers": [
+            {
+                "name": "Authorization",
+                "value": ""
+            }
+        ]
+        #>
+        'headers' = @(
+            @{ name = "Authorization"; value = "" }
+        )
     }
 
     # Add optional properties
