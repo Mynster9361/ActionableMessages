@@ -4,7 +4,7 @@
     RootModule        = 'ActionableMessages.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '1.0.3'
+    ModuleVersion     = '1.0.5'
 
     # ID used to uniquely identify this module
     GUID              = 'd1e5c3f4-5e3b-4c2a-8c3b-5e3b4c2a8c3b'
@@ -33,7 +33,7 @@
     'New-AMNotificationCard', 'New-AMServiceAlertCard',
     'New-AMServerMonitoringCard', 'New-AMServerPurposeSurveyCard',
     'New-AMITResourceRequestCard', 'New-AMApprovalCard',
-    'New-AMApplicationUsageSurveyCard', 'New-AMDiskSpaceAlertCard', 'New-AMAccountVerificationCard'
+    'New-AMApplicationUsageSurveyCard', 'New-AMDiskSpaceAlertCard', 'New-AMAccountVerificationCard', 'Show-AMCardPreview'
 
 
 
@@ -67,6 +67,7 @@
     'Public/Core/Export-AMCardForEmail.ps1',
     'Public/Core/New-AMCard.ps1',
     'Public/Core/ConvertFrom-AMJson.ps1',
+    'Public/Core/Show-AMCardPreview.ps1',
     'Public/Elements/New-AMChoice.ps1',
     'Public/Elements/New-AMColumn.ps1',
     'Public/Elements/New-AMColumnSet.ps1',
